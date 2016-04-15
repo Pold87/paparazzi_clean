@@ -1,0 +1,5 @@
+
+send /home/pold/paparazzi/sw/airborne/modules/computer_vision/textons.csv paparazzi/textons.csv
+send /home/pold/paparazzi/sw/airborne/modules/computer_vision/mat_train_hists.csv paparazzi/mat_train_hists.csv
+send /home/pold/paparazzi/sw/airborne/modules/computer_vision/board_train_pos.csv paparazzi/board_train_pos.csv
+send /home/pold/paparazzi/sw/airborne/modules/computer_vision/treXton_float.net paparazzi/treXton_float.net

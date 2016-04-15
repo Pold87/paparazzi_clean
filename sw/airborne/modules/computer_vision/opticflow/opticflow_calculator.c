@@ -33,8 +33,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// Own Header
-#include "opticflow_calculator.h"
 
 
 // Computer Vision
@@ -44,6 +42,10 @@
 #include "lib/vision/edge_flow.h"
 #include "size_divergence.h"
 #include "linear_flow_fit.h"
+
+// Own Header
+#include "opticflow_calculator.h"
+
 
 // What methods are run to determine divergence, lateral flow, etc.
 // SIZE_DIV looks at line sizes and only calculates divergence
