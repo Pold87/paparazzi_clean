@@ -6,7 +6,7 @@
    radio="radios/dummy.xml"
    telemetry="telemetry/default_rotorcraft.xml"
    flight_plan="flight_plans/VS/vs_create_training_set.xml"
-   settings="[settings/rotorcraft_basic.xml]"
+   settings="[settings/rotorcraft_basic.xml] settings/dummy.xml"
    settings_modules=""
    gui_color="#ffffa233f360"
   />

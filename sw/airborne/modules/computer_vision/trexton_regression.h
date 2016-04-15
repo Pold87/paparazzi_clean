@@ -35,8 +35,7 @@
 void init_positions(void);
 void send_pos_to_ground_station(int x, int y);
 
-uint8_t predict_class(int *texton_hist);
-struct measurement predict_position(void *hist, int hist_size);
+struct measurement predict_position(double hist[], int hist_size);
 struct measurement predict_fann(double hist[], int size_hist);
 struct measurement linear_regression_prediction(int texton_histogram[]);
 

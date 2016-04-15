@@ -71,7 +71,7 @@
 #define TEXTON_STANDARIZE true
 #define COLOR_CHANNELS 3
 #define NUM_COLOR_BINS 48
-#define SEND_VIDEO true
+#define SEND_VIDEO false
 #define USE_COLOR false
 #define USE_ALL true
 #define CHANNELS 3

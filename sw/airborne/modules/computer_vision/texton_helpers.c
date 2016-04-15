@@ -236,7 +236,7 @@ uint8_t get_interlace(struct image_t *img){
     break;
     
   default :
-    printf("No valid color space defined");/* /*  *\/ */
+    printf("No valid color space defined");
     interlace = -1;
   }
 
@@ -303,8 +303,8 @@ void extract_one_patch(struct image_t *img, double *patch, int x, int y, uint8_t
   }
 
   
-  double var = M2 / (TOTAL_PATCH_SIZE - 1);
-  double std = sqrt(var);
+  /* double var = M2 / (TOTAL_PATCH_SIZE - 1); */
+  /* double std = sqrt(var); */
   /* printf("M2 is %f, std is %f min %f  max %f", M2, std, min_val, max_val); */
   /*  Normalize*/
 

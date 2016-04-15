@@ -129,7 +129,7 @@ uint8_t read_csv_into_array(void *array, char *filename, void (*cb)(void *, size
 }
 
 
-uint8_t read_textons_from_csv(double *textons, char *filename) {
+uint8_t read_textons_from_csv(double textons[][TOTAL_PATCH_SIZE], char *filename) {
   
   printf("\n%s\n", filename);
   fflush(stdout); // Prints to screen or whatever your standard out is
@@ -142,13 +142,13 @@ uint8_t read_textons_from_csv(double *textons, char *filename) {
 
 }
 
-uint8_t read_histograms_from_csv(int *histograms, char *filename, int used_width) {
+uint8_t read_histograms_from_csv(double histograms[][SIZE_HIST], char *filename, int used_width) {
    
   printf("\n%s\n", filename);
   fflush(stdout); // Prints to screen or whatever your standard out is
   max_lines = NUM_HISTOGRAMS;
   width = used_width;
-  uint8_t r = read_csv_into_array(histograms, filename, cb_write_to_int_arr);
+  uint8_t r = read_csv_into_array(histograms, filename, cb_write_to_double_arr);
 
   return r;
 

@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 
-#include "/home/pold/Documents/Internship/particle_filter/src/particle_filter.h"
+#include "modules/particle_filter/particle_filter.h"
 
 #include "lib/v4l/v4l2.h"
 #include "lib/vision/image.h"
@@ -32,21 +32,11 @@ static char position_filename[] =  "board_train_pos.csv";
 static struct measurement all_positions[NUM_HISTOGRAMS];
 /* static struct measurement all_test_positions[NUM_TEST_HISTOGRAMS]; */
 
-#if USE_COLOR
-#define SIZE_HIST NUM_COLOR_BINS*COLOR_CHANNELS
-#else
-#define SIZE_HIST NUM_TEXTONS*CHANNELS
-#endif
-
-static int regression_histograms[NUM_HISTOGRAMS][SIZE_HIST];
+static double regression_histograms[NUM_HISTOGRAMS][SIZE_HIST];
 static double regression_histograms_color[NUM_HISTOGRAMS][SIZE_HIST];
-static int histograms_testset[NUM_TEST_HISTOGRAMS][SIZE_HIST];
+/* static int histograms_testset[NUM_TEST_HISTOGRAMS][SIZE_HIST]; */
 
 static int current_test_histogram = 0;
-
-/* static double ws_x[NUM_TEXTONS * CHANNELS]; */
-/* static double ws_y[NUM_TEXTONS * CHANNELS]; */
-
 static int use_variance = 0;
 
 /* Create  particles */
@@ -107,6 +97,7 @@ void trexton_init()
     read_histograms_from_csv(regression_histograms, histogram_filename, SIZE_HIST);
   #endif
 
+  /* Print color histograms */
   /* int i, j; */
   /* for (i = 0; i < NUM_HISTOGRAMS; i++) { */
   /*   for (j = 0; j < NUM_COLOR_BINS * COLOR_CHANNELS; j++) { */
@@ -116,21 +107,10 @@ void trexton_init()
   /* } */
 
 
-
+  /* Read x, y, position from SIFT */
   read_positions_from_csv(all_positions, position_filename);
-  /* read_predictions_from_csv(all_test_positions, test_position_filename, NUM_TEST_HISTOGRAMS, 0); */
-  /* read_weights_from_csv(ws_x, "ws_x.csv"); */
-  /* read_weights_from_csv(ws_y, "ws_y.csv"); */
 
 #endif
-
-  /*     int u; */
-  /*     for (u = 0; u < NUM_TEXTONS * CHANNELS; u++) { */
-  /*   printf("%f ", ws_x[u]); */
-  /*   printf("%f ", ws_y[u]); */
-  /* } */
-  /*   printf("\n"); */
-
 
 #if EVALUATE
   /* read_test_histograms_from_csv(histograms_testset, histogram_filename_testset); */
@@ -185,48 +165,45 @@ void trexton_init()
 void trexton_periodic()
 {
 
-#if MEASURE_TIME
-  /* clock_t start = clock(); */;
-  static struct timeval t0, t1, tot;
-  long elapsed;
-  gettimeofday(&tot, 0);
-#endif
-
+  #if MEASURE_TIME
+    /* clock_t start = clock(); */;
+    static struct timeval t0, t1, tot;
+    long elapsed;
+    gettimeofday(&tot, 0);
+  #endif
 
   /* Calculate the texton histogram -- that is the frequency of
-    characteristic image patches -- for this image */
+     characteristic image patches -- for this image */
 
   struct image_t img;
 
-#if USE_WEBCAM
-  /* Get the image from the camera */
-  v4l2_image_get(trexton_dev, &img);
+  #if USE_WEBCAM
+    /* Get the image from the camera */
+    v4l2_image_get(trexton_dev, &img);
 
+    #if USE_CONVERSIONS
 
-#if USE_CONVERSIONS
-
-  /* Create RGB image */
-  struct image_t rgb_img, opp_img, std_img;
-  image_create(&rgb_img, 320, 240, IMAGE_RGB);
-  image_create(&opp_img, 320, 240, IMAGE_OPPONENT);
-  image_create(&std_img, 320, 240, IMAGE_STD);
-  YUV422toRGB(&img, &rgb_img);
-  double means[8];
-  RGBtoOpponent(&rgb_img, &opp_img, means);
-  image_grayscale_standardize(&opp_img, &std_img, means);
-  image_grayscale_standardize(&img, &std_img, means);
-  printf("Means are %f, %f, %f %f\n", means[0], means[1], means[2], means[3]);
-
-  uint8_t *rgb_buf = (uint8_t *)rgb_img.buf;
-  uint8_t *opp_buf = (uint8_t *)opp_img.buf;
-  double *std_buf = (double *)std_img.buf;
-
-  printf("RGB: %d %d\n", rgb_buf[0], rgb_buf[1]);
-  printf("Opponent: %d %d %d %d\n", opp_buf[0], opp_buf[1], opp_buf[2], opp_buf[3]);
-  printf("STD: %f %f %f %f\n", std_buf[0], std_buf[1], std_buf[2], std_buf[3]);
-#endif
-
-#endif
+      /* Create RGB image */
+      struct image_t rgb_img, opp_img, std_img;
+      image_create(&rgb_img, 320, 240, IMAGE_RGB);
+      image_create(&opp_img, 320, 240, IMAGE_OPPONENT);
+      image_create(&std_img, 320, 240, IMAGE_STD);
+      YUV422toRGB(&img, &rgb_img);
+      double means[8];
+      RGBtoOpponent(&rgb_img, &opp_img, means);
+      image_grayscale_standardize(&opp_img, &std_img, means);
+      image_grayscale_standardize(&img, &std_img, means);
+      printf("Means are %f, %f, %f %f\n", means[0], means[1], means[2], means[3]);
+      
+      uint8_t *rgb_buf = (uint8_t *)rgb_img.buf;
+      uint8_t *opp_buf = (uint8_t *)opp_img.buf;
+      double *std_buf = (double *)std_img.buf;
+      
+      printf("RGB: %d %d\n", rgb_buf[0], rgb_buf[1]);
+      printf("Opponent: %d %d %d %d\n", opp_buf[0], opp_buf[1], opp_buf[2], opp_buf[3]);
+      printf("STD: %f %f %f %f\n", std_buf[0], std_buf[1], std_buf[2], std_buf[3]);
+    #endif
+  #endif
 
 #if MEASURE_TIME
   gettimeofday(&t1, 0);
@@ -450,7 +427,7 @@ void trexton_periodic()
  *
  * @return The x, y, position of the MAV, computed by means of the input histogram
  */
-struct measurement predict_position(void *hist, int hist_size)
+struct measurement predict_position(double hist[], int hist_size)
 {
 
   int h = 0; /* Histogram iterator variable */
@@ -463,11 +440,9 @@ struct measurement predict_position(void *hist, int hist_size)
   for (h = 0; h < NUM_HISTOGRAMS; h++) {
     /* dist = euclidean_dist_int(hist, regression_histograms[h], hist_size); */
 #if USE_COLOR
-    double *hist = (double*) hist;
     dist = chi_square_dist_double(hist, regression_histograms_color[h], hist_size);
 #else
-    int *hist = (int*) hist;
-    dist = euclidean_dist_int(hist, regression_histograms[h], hist_size);
+    dist = euclidean_dist(hist, regression_histograms[h], hist_size);
 #endif
 
     /* printf("dist is %d %f\n", h, dist); */
