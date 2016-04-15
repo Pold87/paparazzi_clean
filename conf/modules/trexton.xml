@@ -3,16 +3,17 @@
 <module name="trexton" dir="computer_vision">
   <doc>
     <description>treXton localization</description>
-    <configure name="TREXTON_DEBUG" value="FALSE|TRUE" description="Use stream (default: TRUE)"/>
   </doc>
 
+  <depends>video_thread</depends>
+  
   <header>
     <file name="trexton_regression.h"/>
   </header>
 
+  
   <init fun="trexton_init()"/>
-  <periodic fun="trexton_periodic()" freq="30" autorun="TRUE"/>
-
+  <!-- <periodic fun="trexton_periodic()" freq="30" autorun="TRUE"/> -->
   <makefile>
 
     <include name="modules/computer_vision"/>

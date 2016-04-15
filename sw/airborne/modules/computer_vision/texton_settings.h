@@ -74,7 +74,7 @@
 #define SEND_VIDEO false
 #define USE_COLOR false
 #define USE_ALL true
-#define CHANNELS 3
+#define CHANNELS 1
 
 #if USE_COLOR
   #define SIZE_HIST NUM_COLOR_BINS*COLOR_CHANNELS

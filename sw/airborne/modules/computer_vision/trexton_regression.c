@@ -3,7 +3,7 @@
 #include "trexton_regression.h"
 #include "image_conversions.h"
 #include "readcsv.h"
-
+#include "modules/computer_vision/cv.h"
 #include <stdio.h>
 
 #include "modules/particle_filter/particle_filter.h"
@@ -65,7 +65,10 @@ double textons[NUM_TEXTONS * CHANNELS][TOTAL_PATCH_SIZE];
 
 #define USE_FLOW false
 
-void trexton_init()
+
+struct image_t* trexton_func(struct image_t* img);
+
+void trexton_init(void)
 {
 
   /* Initialize GPS settings  */
@@ -134,36 +137,35 @@ void trexton_init()
   /* } */
 
 
-#if USE_WEBCAM
-  /* Initialize the video device */
-  trexton_dev = v4l2_init(STRINGIFY(TREXTON_DEVICE),
-                          TREXTON_DEVICE_SIZE,
-                          TREXTON_DEVICE_BUFFERS,
-                          V4L2_PIX_FMT_UYVY);
-  if (trexton_dev == NULL) {
-    printf("[treXton_module] Could not initialize the video device\n");
-  }
+/* #if USE_WEBCAM */
+/*   /\* Initialize the video device *\/ */
+/*   trexton_dev = v4l2_init(STRINGIFY(TREXTON_DEVICE), */
+/*                           TREXTON_DEVICE_SIZE, */
+/*                           TREXTON_DEVICE_BUFFERS, */
+/*                           V4L2_PIX_FMT_UYVY); */
+/*   if (trexton_dev == NULL) { */
+/*     printf("[treXton_module] Could not initialize the video device\n"); */
+/*   } */
 
-  // Start the streaming on the V4L2 device
-  if (!v4l2_start_capture(trexton_dev)) {
-    printf("[treXton_module] Could not start capture of the camera\n");
-  }
+/*   // Start the streaming on the V4L2 device */
+/*   if (!v4l2_start_capture(trexton_dev)) { */
+/*     printf("[treXton_module] Could not start capture of the camera\n"); */
+/*   } */
 
 
-  // Open udp socket
-  udp_socket_create(&video_sock,
-                    STRINGIFY(VIEWVIDEO_HOST),
-                    VIEWVIDEO_PORT_OUT,
-                    -1,
-                    VIEWVIDEO_BROADCAST);
-#endif
+/*   // Open udp socket */
+/*   udp_socket_create(&video_sock, */
+/*                     STRINGIFY(VIEWVIDEO_HOST), */
+/*                     VIEWVIDEO_PORT_OUT, */
+/*                     -1, */
+/*                     VIEWVIDEO_BROADCAST); */
+/* #endif */
+
+    cv_add(trexton_func);
 
 }
 
-/* Main function for the texton framework. It s called with a
-   frequency of 30 Hz*/
-void trexton_periodic()
-{
+struct image_t* trexton_func(struct image_t* img) {
 
   #if MEASURE_TIME
     /* clock_t start = clock(); */;
@@ -174,8 +176,6 @@ void trexton_periodic()
 
   /* Calculate the texton histogram -- that is the frequency of
      characteristic image patches -- for this image */
-
-  struct image_t img;
 
   #if USE_WEBCAM
     /* Get the image from the camera */
@@ -417,7 +417,8 @@ void trexton_periodic()
   printf("TOTAL ELAPSED (entire function) %ld ms\n", elapsed / 1000);
 #endif
 
-
+  return img;
+  
 }
 
 /**

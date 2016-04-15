@@ -29,7 +29,19 @@
 
   <modules main_freq="512">
     <load name="bat_voltage_ardrone2.xml"/>
+    <load name="geo_mag.xml"/>
+    <load name="air_data.xml"/>
+    <load name="send_imu_mag_current.xml"/>
+    <load name="video_thread.xml">
+      <define name="VIDEO_THREAD_FPS" value="4"/>
+      <define name="VIDEO_THREAD_CAMERA" value="bottom_camera"/>
+      <define name="VIDEO_THREAD_SHOT_PATH" value="/data/video/images"/>
+    </load>
     <load name="trexton.xml"/>
+    <load name="video_rtp_stream.xml">
+      <define name="VIEWVIDEO_DOWNSIZE_FACTOR" value="1"/>
+      <define name="VIEWVIDEO_QUALITY_FACTOR" value="70"/>
+    </load>
   </modules>
 
   <commands>
@@ -51,7 +63,8 @@
     <define name="TRIM_PITCH" value="0"/>
     <define name="TRIM_YAW" value="0"/>
 
-    <!-- Time cross layout (X), with order NW (CW), NE (CCW), SE (CW), SW (CCW) -->
+    <!-- Time cross layout (X), with order NW (CW), NE (CCW), SE (CW),
+         SW (CCW) -->
     <define name="TYPE" value="QUAD_X"/>
   </section>
 
