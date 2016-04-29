@@ -27,11 +27,11 @@
 
 #include <stdio.h>
 #include "state.h"
-#include "viewvideo.h"
+#include "video_thread.h"
 
 /** Set the default File logger path to the USB drive */
 #ifndef VIDEO_USB_LOGGER_PATH
-#define VIDEO_USB_LOGGER_PATH /data/video/usb
+#define VIDEO_USB_LOGGER_PATH /data/ftp/internal_000/volker_stream
 #endif
 
 /** The file pointer */
@@ -80,11 +80,11 @@ void video_usb_logger_periodic(void)
   static uint32_t sonar = 0;
 
   // Take a new shot
-  viewvideo_take_shot(TRUE);
+  video_thread_take_shot(TRUE);
 
   // Save to the file
   fprintf(video_usb_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n", counter,
-          viewvideo.shot_number, euler->phi, euler->theta, euler->psi, ned->x,
+          video_thread.shot_number, euler->phi, euler->theta, euler->psi, ned->x,
           ned->y, ned->z, sonar);
   counter++;
 }

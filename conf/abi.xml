@@ -79,6 +79,11 @@
       <field name="rssi" type="int8_t" unit="dB"/>
     </message>
 
+    <message name="TREXTON" id="14">
+      <field name="x" type="int16_t" unit="cm"/>
+      <field name="y" type="int16_t" unit="cm"/>
+    </message>
+
   </msg_class>
 
 </protocol>

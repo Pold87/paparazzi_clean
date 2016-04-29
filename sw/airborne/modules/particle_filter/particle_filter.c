@@ -156,8 +156,8 @@ void particle_filter(struct particle xs[N], struct measurement *z, struct measur
   //printf("x is: %f y is: %f\n", z->x, z->y);
   double w[N]; /* The weights of particles */
 
-  double process_noise_x = 2;
-  double process_noise_y = 2;
+  double process_noise_x = 10;
+  double process_noise_y = 10;
 
   double measurement_noise_x;
   double measurement_noise_y;
@@ -344,12 +344,15 @@ void init_visualize(void){
   gnuplot = popen("gnuplot", "w");
   fprintf(gnuplot, "set palette model RGB defined (0 'blue', 1 'green', 2 'red', 3 'yellow')\n");
   fprintf(gnuplot, "unset colorbox\n");
-  fprintf(gnuplot, "set xrange[0:1280]\n");
-  fprintf(gnuplot, "set yrange[0:720]\n");
+  /* fprintf(gnuplot, "set xrange[0:1280]\n"); */
+  /* fprintf(gnuplot, "set yrange[0:720]\n"); */
+  fprintf(gnuplot, "set xrange[-500:500]\n");
+  fprintf(gnuplot, "set yrange[-500:500]\n");
 }
 
 void visualize_simple(double x, double y) {
-    fprintf(gnuplot, "plot '/home/pold/Documents/Internship/draug/img/sparse_board.jpg' binary filetype=jpg with rgbimage, '-' with points pt 7 ps variable palette\n");
+    /* fprintf(gnuplot, "plot '/home/pold/Documents/Internship/draug/img/sparse_board.jpg' binary filetype=jpg with rgbimage, '-' with points pt 7 ps variable palette\n"); */
+    fprintf(gnuplot, "plot '-' with points pt 7 ps variable palette\n");
     fprintf(gnuplot, "%f %f 4 2\n", x, y);
     fprintf(gnuplot, "e\n");
     fflush(gnuplot);

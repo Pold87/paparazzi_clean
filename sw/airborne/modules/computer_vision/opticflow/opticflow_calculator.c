@@ -127,7 +127,7 @@ PRINT_CONFIG_VAR(OPTICFLOW_FAST9_THRESHOLD)
 PRINT_CONFIG_VAR(OPTICFLOW_FAST9_MIN_DISTANCE)
 
 #ifndef OPTICFLOW_METHOD
-#define OPTICFLOW_METHOD 0
+#define OPTICFLOW_METHOD 1
 #endif
 PRINT_CONFIG_VAR(OPTICFLOW_METHOD)
 
@@ -189,6 +189,9 @@ void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h)
 void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_state_t *state, struct image_t *img,
                              struct opticflow_result_t *result)
 {
+
+  printf("Calcing LK now");
+  fflush(stdout);
   // variables for size_divergence:
   float size_divergence; int n_samples;
 
@@ -199,9 +202,16 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   result->fps = 1 / (timeval_diff(&opticflow->prev_timestamp, &img->ts) / 1000.);
   memcpy(&opticflow->prev_timestamp, &img->ts, sizeof(struct timeval));
 
+  printf("trying grayscale");
+  fflush(stdout);
+
+  
   // Convert image to grayscale
   image_to_grayscale(img, &opticflow->img_gray);
 
+  printf("Grayscale now");
+  fflush(stdout);
+  
   // Copy to previous image if not set
   if (!opticflow->got_first_img) {
     image_copy(&opticflow->img_gray, &opticflow->prev_img_gray);
@@ -215,6 +225,9 @@ void calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct opticflow_sta
   // FAST corner detection (TODO: non fixed threshold)
   struct point_t *corners = fast9_detect(img, opticflow->fast9_threshold, opticflow->fast9_min_distance,
                                          0, 0, &result->corner_cnt);
+
+  printf("Got the corners");
+  fflush(stdout);
 
   // Adaptive threshold
   if (opticflow->fast9_adaptive) {

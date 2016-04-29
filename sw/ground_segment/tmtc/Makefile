@@ -43,7 +43,7 @@ all: link server messages settings ivy_tcp_aircraft ivy_tcp_controller broadcast
 opt: server.opt
 
 clean:
-	$(Q)rm -f link server messages settings *.bak *~ core *.o .depend *.opt *.out *.cm* ivy_tcp_aircraft ivy_tcp_controller broadcaster ivy2udp ivy2serial ivy_serial_bridge app_server gpsd2ivy c_ivy_client_example_1 c_ivy_client_example_2 c_ivy_client_example_3 ivy2nmea
+	$(Q)rm -f link server messages settings *.bak *~ core *.o .depend *.opt *.out *.cm* ivy_tcp_aircraft ivy_tcp_controller broadcaster ivy2udp ivy2serial ivy_serial_bridge app_server gpsd2ivy c_ivy_client_example_1 c_ivy_client_example_2 c_ivy_client_example_3 ivy2nmea trexton_visualizer
 
 messages : messages.cmo $(LIBPPRZCMA) $(LIBPPRZLINKCMA)
 	@echo OL $@
@@ -153,6 +153,8 @@ ivy_serial_bridge: ivy_serial_bridge.c
 	@echo OL $@
 	$(Q)$(CC) $(GLIBIVY_CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GLIBIVY_LDFLAGS) $(GTK_LDFLAGS)
 
+trexton_visualizer: trexton_visualizer.c
+	$(CC) $(GLIBIVY_CFLAGS) -o $@ $< $(GLIBIVY_LDFLAGS) -I../../airborne/modules/particle_filter/ ../../airborne/modules/particle_filter/particle_filter.c ../../airborne/modules/particle_filter/random_number_gen.c -lm
 
 .PHONY: all opt clean
 

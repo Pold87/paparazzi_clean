@@ -19,15 +19,21 @@
 
 /* #include "opticflow_module.h" */
 #include "opticflow/opticflow_calculator.h"
+#include "subsystems/datalink/telemetry.h"
+
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 
 /* #include "floatfann.h" */
 
 bool gps_available;   ///< Is set to TRUE when a new REMOTE_GPS packet is received and parsed
 
 /* Histogram paths */
-static char histogram_filename[] = "mat_train_hists.csv";
+static char histogram_filename[] = "mat_train_hists_texton.csv";
 /* static char histogram_filename_testset[] = "mat_test_hists_str8.csv"; */
-static char position_filename[] =  "board_train_pos.csv";
+/* static char position_filename[] =  "board_train_pos.csv"; */
+static char position_filename[] =  "cyberzoo_pos_optitrack.csv";
 /* static char test_position_filename[] =  "predictions_cross.csv"; */
 static struct measurement all_positions[NUM_HISTOGRAMS];
 /* static struct measurement all_test_positions[NUM_TEST_HISTOGRAMS]; */
@@ -46,7 +52,7 @@ struct particle particles[N];
 struct opticflow_t opticflow;                      ///< Opticflow calculations
 static struct opticflow_result_t opticflow_result; ///< The opticflow result
 static struct opticflow_state_t opticflow_state;   ///< State of the drone to communicate with the opticflow
-/* static pthread_mutex_t opticflow_mutex;            ///< Mutex lock fo thread safety */
+static pthread_mutex_t opticflow_mutex;            ///< Mutex lock fo thread safety
 static bool opticflow_got_result; ///< When we have an optical flow calculation
 
 static struct UdpSocket video_sock; /* UDP socket for sending RTP video */
@@ -65,14 +71,28 @@ double textons[NUM_TEXTONS * CHANNELS][TOTAL_PATCH_SIZE];
 
 #define USE_FLOW false
 
-
+/* Local function declarations */
+void trexton_init(void);
 struct image_t* trexton_func(struct image_t* img);
+
+
+int global_x = 0;
+int global_y = 0;
 
 void trexton_init(void)
 {
 
+  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_TREXTON, send_trexton_position);
+
+  /* Print current working directory */
+   char cwd[1024];
+   if (getcwd(cwd, sizeof(cwd)) != NULL)
+       fprintf(stdout, "Current working dir: %s\n", cwd);
+   else
+       perror("getcwd() error");
+
   /* Initialize GPS settings  */
-  init_positions();
+  /* init_positions(); */
 
   /* Get textons -- that is the clustering centers */
   read_textons_from_csv(textons, texton_filename);
@@ -87,7 +107,7 @@ void trexton_init(void)
   opticflow_state.agl = 0;
 
   // Initialize the opticflow calculation
-  opticflow_calc_init(&opticflow, TREXTON_DEVICE_SIZE);
+  opticflow_calc_init(&opticflow, 640, 480);
 
   opticflow_got_result = FALSE;
 
@@ -136,37 +156,16 @@ void trexton_init(void)
   /*   printf("is is %d pos x is %f, pos y is %f\n", i, all_positions[i].x, all_positions[i].y); */
   /* } */
 
-
-/* #if USE_WEBCAM */
-/*   /\* Initialize the video device *\/ */
-/*   trexton_dev = v4l2_init(STRINGIFY(TREXTON_DEVICE), */
-/*                           TREXTON_DEVICE_SIZE, */
-/*                           TREXTON_DEVICE_BUFFERS, */
-/*                           V4L2_PIX_FMT_UYVY); */
-/*   if (trexton_dev == NULL) { */
-/*     printf("[treXton_module] Could not initialize the video device\n"); */
-/*   } */
-
-/*   // Start the streaming on the V4L2 device */
-/*   if (!v4l2_start_capture(trexton_dev)) { */
-/*     printf("[treXton_module] Could not start capture of the camera\n"); */
-/*   } */
-
-
-/*   // Open udp socket */
-/*   udp_socket_create(&video_sock, */
-/*                     STRINGIFY(VIEWVIDEO_HOST), */
-/*                     VIEWVIDEO_PORT_OUT, */
-/*                     -1, */
-/*                     VIEWVIDEO_BROADCAST); */
-/* #endif */
-
-    cv_add(trexton_func);
+  printf("Adding function");
+  cv_add(trexton_func);
 
 }
 
 struct image_t* trexton_func(struct image_t* img) {
 
+  printf("Starting to fly");
+  printf("Type of in IMAGE  is %d\n", img->type);
+  
   #if MEASURE_TIME
     /* clock_t start = clock(); */;
     static struct timeval t0, t1, tot;
@@ -179,7 +178,7 @@ struct image_t* trexton_func(struct image_t* img) {
 
   #if USE_WEBCAM
     /* Get the image from the camera */
-    v4l2_image_get(trexton_dev, &img);
+    /* v4l2_image_get(trexton_dev, &img); */
 
     #if USE_CONVERSIONS
 
@@ -188,11 +187,11 @@ struct image_t* trexton_func(struct image_t* img) {
       image_create(&rgb_img, 320, 240, IMAGE_RGB);
       image_create(&opp_img, 320, 240, IMAGE_OPPONENT);
       image_create(&std_img, 320, 240, IMAGE_STD);
-      YUV422toRGB(&img, &rgb_img);
+      YUV422toRGB(img, &rgb_img);
       double means[8];
       RGBtoOpponent(&rgb_img, &opp_img, means);
       image_grayscale_standardize(&opp_img, &std_img, means);
-      image_grayscale_standardize(&img, &std_img, means);
+      image_grayscale_standardize(img, &std_img, means);
       printf("Means are %f, %f, %f %f\n", means[0], means[1], means[2], means[3]);
       
       uint8_t *rgb_buf = (uint8_t *)rgb_img.buf;
@@ -214,11 +213,11 @@ struct image_t* trexton_func(struct image_t* img) {
 
 
   double texton_histogram[NUM_TEXTONS*NUM_TEXTONS] = {0.0};
-  get_texton_histogram(&img, texton_histogram, textons);
+  get_texton_histogram(img, texton_histogram, textons);
 
   #if USE_COLOR
     double color_hist[COLOR_CHANNELS*NUM_COLOR_BINS] = {0.0};
-    get_color_histogram(&img, color_hist, NUM_COLOR_BINS);
+    get_color_histogram(img, color_hist, NUM_COLOR_BINS);
   #endif
 
 
@@ -240,7 +239,7 @@ struct image_t* trexton_func(struct image_t* img) {
                trexton_dev->h,
                IMAGE_JPEG);
 
-  jpeg_encode_image(&img, &img_jpeg, 70, FALSE);
+  jpeg_encode_image(img, &img_jpeg, 70, FALSE);
   rtp_frame_send(&video_sock, /* UDP device */
                  &img_jpeg,
                  0, /* Format 422 */
@@ -329,10 +328,14 @@ struct image_t* trexton_func(struct image_t* img) {
   // Do the optical flow calculation
   struct opticflow_result_t temp_result;
 
+  printf("Now calculating opticflow");
+  fflush(stdout);
   /* edgeflow_calc_frame(&opticflow, &temp_state, &img, &temp_result); */
-  opticflow_calc_frame(&opticflow, &temp_state, &img, &temp_result);
+  
+  opticflow_calc_frame(&opticflow, &temp_state, img, &temp_result);
   printf("\n opticflow result: x:%d y:%d\n", temp_result.flow_x, temp_result.flow_y);
-// Copy the result if finished
+  fflush(stdout);
+  // Copy the result if finished
   pthread_mutex_lock(&opticflow_mutex);
   memcpy(&opticflow_result, &temp_result, sizeof(struct opticflow_result_t));
   opticflow_got_result = TRUE;
@@ -344,8 +347,8 @@ struct image_t* trexton_func(struct image_t* img) {
 
   /* Mind the change of x, y ! */
   /* TODO: use subpixel factor instead of 1000 */
-  flow.y =  3.5 * ((double) opticflow_result.flow_x) / 1000.0;
-  flow.x =  3.5 * ((double) opticflow_result.flow_y) / 1000.0;
+  flow.x =  9.0 * ((double) opticflow_result.flow_x) / 1000.0;
+  flow.y =  9.0 * ((double) opticflow_result.flow_y) / 1000.0;
 
   printf("flow is %f", flow.x);
   particle_filter(particles, &pos, &flow, use_variance, 1);
@@ -354,6 +357,9 @@ struct image_t* trexton_func(struct image_t* img) {
   particle_filter(particles, &pos, &flow, use_variance, 0);
 #endif
 
+  printf("I finished the particle filter");
+  fflush(stdout);
+  
 #if MEASURE_TIME
   gettimeofday(&t1, 0);
   elapsed = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
@@ -365,7 +371,9 @@ struct image_t* trexton_func(struct image_t* img) {
   /* printf("\nRaw: %f,%f\n", pos.x, pos.y); */
   printf("Particle filter: %f,%f\n", p_forward.x, p_forward.y);
 
-
+  global_x = (int) p_forward.x;
+  global_y = (int) p_forward.y;
+ 
   FILE *fp_predictions;
   FILE *fp_particle_filter;
   FILE *fp_edge;
@@ -380,7 +388,9 @@ struct image_t* trexton_func(struct image_t* img) {
   fclose(fp_edge);
 #endif
 
-  send_pos_to_ground_station((int) p_forward.x, (int) p_forward.y);
+  /* Send postion to ground station */
+  /*send_trexton_position()*/
+  /* send_pos_to_ground_station((int) p_forward.x, (int) p_forward.y); */
   current_test_histogram++;
 
 #if !EVALUATE
@@ -392,9 +402,8 @@ struct image_t* trexton_func(struct image_t* img) {
   image_free(&std_img);
 #endif
 #if USE_WEBCAM
-  v4l2_image_free(trexton_dev, &img);
+  /* v4l2_image_free(trexton_dev, &img); */
 #else
-  image_free(&img);
   image_free(&rgb_img);
 #endif
 
@@ -483,28 +492,21 @@ struct measurement predict_position(double hist[], int hist_size)
   return mean_pos;
 }
 
+static void send_trexton_position(struct transport_tx *trans, struct link_device *dev)
+ {
+   printf("global x is %d global y is %d", global_x, global_y);
+   fflush(stdout);
+   pprz_msg_send_TREXTON(trans, dev, AC_ID, &global_x, &global_y);
+ }
 
-/** Parse the REMOTE_GPS datalink packet */
-void send_pos_to_ground_station(int x, int y)
-{
-  gps.fix = GPS_FIX_3D;
-  gps_available = TRUE;
+/* /\** Parse the REMOTE_GPS datalink packet *\/ */
+/* void send_pos_to_ground_station(int x, int y) */
+/* { */
+/*   // Dummy for changing coordinates */
 
-  // Dummy for changing coordinates
-
-  gps.ecef_pos.x = x;
-  gps.ecef_pos.y = y;
-
-  // publish new GPS data
-  uint32_t now_ts = get_sys_time_usec();
-  gps.last_msg_ticks = sys_time.nb_sec_rem;
-  gps.last_msg_time = sys_time.nb_sec;
-  if (gps.fix == GPS_FIX_3D) {
-    gps.last_3dfix_ticks = sys_time.nb_sec_rem;
-    gps.last_3dfix_time = sys_time.nb_sec;
-  }
-  AbiSendMsgGPS(GPS_DATALINK_ID, now_ts, &gps);
-}
+/*   AbiSendMsgTREXTON(GPS_DATALINK_ID, x, y); */
+/*   /\* pprz_msg_send_TREXTON(trans, dev, AC_ID, x, y); *\/ */
+/* } */
 
 
 /* Initialize GPS settings  */

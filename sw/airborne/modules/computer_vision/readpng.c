@@ -23,7 +23,7 @@ void read_png_file(char *filename, struct image_t *img) {
   if(setjmp(png_jmpbuf(png))) abort();
 
   png_init_io(png, fp);
-
+  
   png_read_info(png, info);
 
   width      = png_get_image_width(png, info);
@@ -64,6 +64,7 @@ void read_png_file(char *filename, struct image_t *img) {
     row_pointers[y] = (png_byte*)malloc(png_get_rowbytes(png,info));
   }
 
+  
   png_read_image(png, row_pointers);
 
   png_destroy_read_struct(&png, &info, NULL);
@@ -71,6 +72,8 @@ void read_png_file(char *filename, struct image_t *img) {
   info=NULL;
 
   int read_opponent = 0;
+
+
 
   if (read_opponent) {
   /* Read as opponent color space  */
@@ -89,15 +92,14 @@ void read_png_file(char *filename, struct image_t *img) {
 	}
       } 
     } else {
+
       /* Read as RGB */
     int rgb_pos = 0;
 
       for(int y = 0; y < height; y++) {
 	png_bytep row = row_pointers[y];
-
 	for(int x = 0; x < width; x++) {
 	  png_bytep px = &(row[x * 4]);
-
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[0];
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[1];
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[2];
@@ -105,7 +107,6 @@ void read_png_file(char *filename, struct image_t *img) {
 	}
       }
   }
-
 
   // Set the image
   /* img->buf_idx = 0; */

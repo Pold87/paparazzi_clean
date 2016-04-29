@@ -43,6 +43,7 @@ void cv_add(cvFunction func)
 void cv_run(struct image_t *img)
 {
   struct image_t* temp_image = img;
+  printf("Yeah yeah I'm called: %d", cv_func_cnt);
   for (int i = 0; i < cv_func_cnt; i++) {
     struct image_t* new_image = cv_func[i](temp_image);
     if (new_image != 0)

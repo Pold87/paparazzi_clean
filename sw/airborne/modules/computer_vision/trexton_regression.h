@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include "texton_settings.h"
 #include "lib/vision/image.h"
+#include "subsystems/datalink/telemetry.h"
 
 /* static char training_data_path[] = "training_data/"; */
 
@@ -39,7 +40,7 @@ struct measurement predict_position(double hist[], int hist_size);
 struct measurement predict_fann(double hist[], int size_hist);
 struct measurement linear_regression_prediction(int texton_histogram[]);
 
+static void send_trexton_position(struct transport_tx *trans, struct link_device *dev);
 extern void trexton_init(void);
-extern void trexton_periodic(void);
 
 #endif
