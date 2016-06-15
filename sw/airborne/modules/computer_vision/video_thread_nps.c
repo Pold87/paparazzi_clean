@@ -25,6 +25,7 @@
  */
 
 // Own header
+
 #include "modules/computer_vision/video_thread.h"
 #include "modules/computer_vision/cv.h"
 
@@ -54,6 +55,10 @@
 static void *video_thread_function(void *data);
 void video_thread_periodic(void) { }
 
+#include "video_thread.h"
+#include "cv.h"
+#include "lib/vision/image.h"
+
 
 // Initialize the video_thread structure with the defaults
 struct video_thread_t video_thread = {
@@ -61,6 +66,7 @@ struct video_thread_t video_thread = {
   .fps = VIDEO_THREAD_FPS,
   .take_shot = FALSE,
   .shot_number = 0
+  .is_running = FALSE
 };
 
 // All dummy functions
@@ -97,13 +103,13 @@ static void *video_thread_function(void *data)
       sprintf(image_path, "%simg_%05d.png", image_folder, i);
       printf("Image path: %s\n", image_path);
       read_png_file(image_path, &img);
-      RGBtoYUV422(&img, &yuv_img);      
+      RGBtoYUV422(&img, &yuv_img);
       cv_run(&yuv_img);
       image_free(&img);
       image_free(&yuv_img);
       j++;
-      j = j % (1 + offset - max_pic); 
-    }    
+      j = j % (1 + offset - max_pic);
+    }
   }
 }
 
@@ -127,6 +133,7 @@ void video_thread_start(void)
   }
 }
 
+
 /**
  * Stops the streaming
  * This could take some time, because the thread is stopped asynchronous.
@@ -137,6 +144,7 @@ void video_thread_stop(void)
   if (!video_thread.is_running) {
     return;
   }
+  cv_run_device(NULL,&img);
 
   // Stop the streaming thread
   video_thread.is_running = false;
@@ -159,3 +167,5 @@ void video_thread_take_shot(bool take)
 {
   video_thread.take_shot = take;
 }
+
+bool add_video_device(struct video_config_t *device __attribute__((unused))){ return true; }

@@ -22,6 +22,7 @@
  *
  *)
 
+
 open Printf
 open Server_globals
 open Aircraft
@@ -57,10 +58,10 @@ let ivalue = fun x ->
     | _ -> failwith "Receive.log_and_parse: int expected"
 
 let format_string_field = fun s ->
-  let s = String.copy s in
-  for i = 0 to String.length s - 1 do
+  let s = Compat.bytes_copy s in
+  for i = 0 to Compat.bytes_length s - 1 do
     match s.[i] with
-        ' ' -> s.[i] <- '_'
+        ' ' ->  Compat.bytes_set s i '_'
       | _ -> ()
   done;
   s
@@ -200,7 +201,7 @@ let log_and_parse = fun ac_name (a:Aircraft.aircraft) msg values ->
       a.block_time <- ivalue "block_time";
       a.energy <- ivalue "energy"
     | "FBW_STATUS" ->
-      a.bat <- fvalue "vsupply" /. 10.;
+      a.fbw.fbw_bat <- fvalue "vsupply" /. 10.;
       a.fbw.pprz_mode_msgs_since_last_fbw_status_msg <- 0;
       a.fbw.rc_rate <- ivalue "frame_rate";
       let fbw_rc_mode = ivalue "rc_status" in
@@ -356,4 +357,3 @@ let log_and_parse = fun ac_name (a:Aircraft.aircraft) msg values ->
       a.datalink_status.downlink_rate <- ivalue "downlink_rate";
       a.datalink_status.downlink_msgs <- ivalue "downlink_nb_msgs"
     | _ -> ()
-

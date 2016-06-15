@@ -213,12 +213,16 @@ let pprz_throttle = fun s ->
 (********************* Vertical control ********************************************)
 let output_vmode = fun stage_xml wp last_wp ->
   let pitch = try Xml.attrib stage_xml "pitch" with _ -> "0.0" in
-  if pitch = "auto"
+  if String.lowercase (Xml.tag stage_xml) <> "manual"
   then begin
-    lprintf "NavVerticalAutoPitchMode(%s);\n" (pprz_throttle (parsed_attrib stage_xml "throttle"))
-  end else begin
-    lprintf "NavVerticalAutoThrottleMode(RadOfDeg(%s));\n" (parse pitch);
+    if pitch = "auto"
+    then begin
+      lprintf "NavVerticalAutoPitchMode(%s);\n" (pprz_throttle (parsed_attrib stage_xml "throttle"))
+    end else begin
+      lprintf "NavVerticalAutoThrottleMode(RadOfDeg(%s));\n" (parse pitch);
+    end
   end;
+
   let vmode = try ExtXml.attrib stage_xml "vmode" with _ -> "alt" in
   begin
     match vmode with
@@ -299,8 +303,8 @@ let rec index_stage = fun x ->
         let l = List.map index_stage (Xml.children x) in
         incr stage; (* To count the loop stage *)
         Xml.Element (Xml.tag x, Xml.attribs x@["no", soi n], l)
-      | "return" | "goto"  | "deroute" | "exit_block" | "follow" | "call" | "home"
-      | "heading" | "attitude" | "go" | "stay" | "xyz" | "set" | "circle" ->
+      | "return" | "goto"  | "deroute" | "exit_block" | "follow" | "call" | "call_once" | "home"
+      | "heading" | "attitude" | "manual" | "go" | "stay" | "xyz" | "set" | "circle" ->
         incr stage;
         Xml.Element (Xml.tag x, Xml.attribs x@["no", soi !stage], Xml.children x)
       | "survey_rectangle" | "eight" | "oval"->
@@ -393,6 +397,20 @@ let rec print_stage = fun index_of_waypoints x ->
         end;
         right ();
         lprintf "NavAttitude(RadOfDeg(%s));\n" (parsed_attrib x "roll");
+        ignore (output_vmode x "" "");
+        left (); lprintf "}\n";
+        lprintf "break;\n"
+      | "manual" ->
+        stage ();
+        begin
+          try
+            let until = parsed_attrib x "until" in
+            lprintf "if (%s) NextStageAndBreak() else {\n" until;
+          with ExtXml.Error _ ->
+            lprintf "{\n"
+        end;
+        right ();
+        lprintf "NavSetManual(%s, %s, %s);\n" (parsed_attrib x "roll") (parsed_attrib x "pitch") (parsed_attrib x "yaw");
         ignore (output_vmode x "" "");
         left (); lprintf "}\n";
         lprintf "break;\n"
@@ -561,6 +579,18 @@ let rec print_stage = fun index_of_waypoints x ->
             end;
         | _ -> failwith "FP: 'call' loop attribute must be TRUE or FALSE"
         end
+      | "call_once" ->
+        (* call_once is an alias for <call fun="x" loop="false"/> *)
+        stage ();
+        let statement = ExtXml.attrib  x "fun" in
+        (* by default, go to next stage immediately *)
+        let break = String.uppercase (ExtXml.attrib_or_default x "break" "FALSE") in
+        lprintf "%s;\n" statement;
+        begin match break with
+        | "TRUE" -> lprintf "NextStageAndBreak();\n";
+        | "FALSE" -> lprintf "NextStage();\n";
+        | _ -> failwith "FP: 'call_once' break attribute must be TRUE or FALSE";
+        end;
       | "survey_rectangle" ->
         let grid = parsed_attrib x "grid"
         and wp1 = get_index_waypoint (ExtXml.attrib x "wp1") index_of_waypoints
@@ -953,6 +983,31 @@ let () =
       Xml2h.define "SECURITY_ALT" (sof (!security_height +. !ground_alt));
       Xml2h.define "HOME_MODE_HEIGHT" (sof home_mode_height);
       Xml2h.define "MAX_DIST_FROM_HOME" (sof mdfh);
+      begin
+        try
+          let geofence_max_alt = get_float "geofence_max_alt" in
+          if geofence_max_alt < !ground_alt then
+            begin
+              fprintf stderr "\nError: Geofence max altitude below ground alt (%.0f < %.0f)\n" geofence_max_alt !ground_alt;
+              exit 1;
+            end
+          else if geofence_max_alt < (!ground_alt +. !security_height) then
+            begin
+              fprintf stderr "\nError: Geofence max altitude below security height (%.0f < (%.0f+%.0f))\n" geofence_max_alt !ground_alt !security_height;
+              exit 1;
+            end
+          else if geofence_max_alt < (!ground_alt +. home_mode_height) then
+            begin
+              fprintf stderr "\nError: Geofence max altitude below ground alt + home mode height (%.0f < (%.0f+%.0f))\n" geofence_max_alt !ground_alt home_mode_height;
+              exit 1;
+            end
+          else if geofence_max_alt < (float_of_string alt) then
+            fprintf stderr "\nWarning: Geofence max altitude below default waypoint alt (%.0f < %.0f)\n" geofence_max_alt (float_of_string alt);
+          Xml2h.define "GEOFENCE_MAX_ALTITUDE" (sof geofence_max_alt)
+        with
+          _ -> ()
+      end;
+
 
       (* output settings file if needed *)
       begin
@@ -997,8 +1052,8 @@ let () =
 
       begin
         try
-          let airspace = Xml.attrib xml "airspace" in
-          lprintf "#define InAirspace(_x, _y) %s(_x, _y)\n" (inside_function airspace)
+          let geofence_sector = Xml.attrib xml "geofence_sector" in
+          lprintf "#define InGeofenceSector(_x, _y) %s(_x, _y)\n" (inside_function geofence_sector)
         with
             _ -> ()
       end;

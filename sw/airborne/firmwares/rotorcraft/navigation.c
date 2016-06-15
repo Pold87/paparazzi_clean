@@ -409,7 +409,6 @@ void nav_init_stage(void)
   VECT3_COPY(nav_last_point, *stateGetPositionEnu_i());
   stage_time = 0;
   nav_circle_radians = 0;
-  horizontal_mode = HORIZONTAL_MODE_WAYPOINT;
 }
 
 #include <stdio.h>
@@ -480,6 +479,20 @@ void nav_home(void)
   nav_run();
 }
 
+/** Set manual roll, pitch and yaw without stabilization
+ *
+ * @param[in] roll The angle in radians (float)
+ * @param[in] pitch The angle in radians (float)
+ * @param[in] yaw The angle in radians (float)
+ */
+void nav_set_manual(float roll, float pitch, float yaw)
+{
+  horizontal_mode = HORIZONTAL_MODE_MANUAL;
+  nav_roll = ANGLE_BFP_OF_REAL(roll);
+  nav_pitch = ANGLE_BFP_OF_REAL(pitch);
+  nav_heading = ANGLE_BFP_OF_REAL(yaw);
+}
+
 /** Returns squared horizontal distance to given point */
 float get_dist2_to_point(struct EnuCoor_i *p)
 {
@@ -503,9 +516,13 @@ void compute_dist2_to_home(void)
 {
   dist2_to_home = get_dist2_to_waypoint(WP_HOME);
   too_far_from_home = dist2_to_home > max_dist2_from_home;
+#ifdef InGeofenceSector
+  struct EnuCoor_f *pos = stateGetPositionEnu_f();
+  too_far_from_home = too_far_from_home || !(InGeofenceSector(pos->x, pos->y));
+#endif
 }
 
-/** Set nav_heading in degrees. */
+/** Set nav_heading in radians. */
 bool nav_set_heading_rad(float rad)
 {
   nav_heading = ANGLE_BFP_OF_REAL(rad);

@@ -82,6 +82,9 @@ bool   autopilot_power_switch;
 bool   autopilot_ground_detected;
 bool   autopilot_detect_ground_once;
 
+/* Geofence exceptions */
+#include "modules/nav/nav_geofence.h"
+
 /** time steps for in_flight detection (at 20Hz, so 20=1second) */
 #ifndef AUTOPILOT_IN_FLIGHT_TIME
 #define AUTOPILOT_IN_FLIGHT_TIME    20
@@ -344,7 +347,7 @@ void autopilot_periodic(void)
   RunOnceEvery(NAV_PRESCALER, compute_dist2_to_home());
 
   if (autopilot_in_flight && autopilot_mode == AP_MODE_NAV) {
-    if (too_far_from_home) {
+    if (too_far_from_home || datalink_lost() || higher_than_max_altitude()) {
       if (dist2_to_home > failsafe_mode_dist2) {
         autopilot_set_mode(FAILSAFE_MODE_TOO_FAR_FROM_HOME);
       } else {
@@ -424,12 +427,15 @@ void autopilot_set_mode(uint8_t new_autopilot_mode)
       case AP_MODE_RC_DIRECT:
         guidance_h_mode_changed(GUIDANCE_H_MODE_RC_DIRECT);
         break;
-#if USE_STABILIZATION_RATE
+      case AP_MODE_RATE_RC_CLIMB:
       case AP_MODE_RATE_DIRECT:
       case AP_MODE_RATE_Z_HOLD:
+#if USE_STABILIZATION_RATE
         guidance_h_mode_changed(GUIDANCE_H_MODE_RATE);
-        break;
+#else
+        return;
 #endif
+        break;
       case AP_MODE_ATTITUDE_RC_CLIMB:
       case AP_MODE_ATTITUDE_DIRECT:
       case AP_MODE_ATTITUDE_CLIMB:
@@ -517,9 +523,9 @@ void autopilot_set_mode(uint8_t new_autopilot_mode)
       default:
         break;
     }
+    //if switching to rate mode but rate mode is not defined, the function returned
     autopilot_mode = new_autopilot_mode;
   }
-
 }
 
 bool autopilot_guided_goto_ned(float x, float y, float z, float heading)
@@ -567,6 +573,77 @@ bool autopilot_guided_move_ned(float vx, float vy, float vz, float heading)
     return true;
   }
   return false;
+}
+
+/* Set guided mode setpoint
+ * Note: Offset position command in NED frame or body frame will only be implemented if
+ * local reference frame has been initialised.
+ * Flag definition:
+   bit 0: x,y as offset coordinates
+   bit 1: x,y in body coordinates
+   bit 2: z as offset coordinates
+   bit 3: yaw as offset coordinates
+   bit 4: free
+   bit 5: x,y as vel
+   bit 6: z as vel
+   bit 7: yaw as rate
+ */
+void autopilot_guided_update(uint8_t flags, float x, float y, float z, float yaw)
+{
+  /* only update setpoints when in guided mode */
+  if (autopilot_mode != AP_MODE_GUIDED) {
+    return;
+  }
+
+  // handle x,y
+  struct FloatVect2 setpoint = {.x = x, .y = y};
+  if (bit_is_set(flags, 5)) { // velocity setpoint
+    if (bit_is_set(flags, 1)) { // set velocity in body frame
+      guidance_h_set_guided_body_vel(setpoint.x, setpoint.y);
+    }
+    guidance_h_set_guided_vel(setpoint.x, setpoint.y);
+  } else {  // position setpoint
+    if (!bit_is_set(flags, 0) && !bit_is_set(flags, 1)) {   // set absolute position setpoint
+      guidance_h_set_guided_pos(setpoint.x, setpoint.y);
+    } else {
+      if (stateIsLocalCoordinateValid()) {
+        if (bit_is_set(flags, 1)) {  // set position as offset in body frame
+          float psi = stateGetNedToBodyEulers_f()->psi;
+
+          setpoint.x = stateGetPositionNed_f()->x + cosf(-psi) * x + sinf(-psi) * y;
+          setpoint.y = stateGetPositionNed_f()->y - sinf(-psi) * x + cosf(-psi) * y;
+        } else {                     // set position as offset in NED frame
+          setpoint.x += stateGetPositionNed_f()->x;
+          setpoint.y += stateGetPositionNed_f()->y;
+        }
+        guidance_h_set_guided_pos(setpoint.x, setpoint.y);
+      }
+    }
+  }
+
+  //handle z
+  if (bit_is_set(flags, 6)) { // speed set-point
+    guidance_v_set_guided_vz(z);
+  } else {    // position set-point
+    if (bit_is_set(flags, 2)) { // set position as offset in NED frame
+      if (stateIsLocalCoordinateValid()) {
+        z += stateGetPositionNed_f()->z;
+        guidance_v_set_guided_z(z);
+      }
+    } else {
+      guidance_v_set_guided_z(z);
+    }
+  }
+
+  //handle yaw
+  if (bit_is_set(flags, 7)) { // speed set-point
+    guidance_h_set_guided_heading_rate(z);
+  } else {    // position set-point
+    if (bit_is_set(flags, 3)) { // set yaw as offset
+      yaw += stateGetNedToBodyEulers_f()->psi;  // will be wrapped to [-pi,pi] later
+    }
+    guidance_h_set_guided_heading(yaw);
+  }
 }
 
 void autopilot_check_in_flight(bool motors_on)
@@ -624,11 +701,9 @@ static uint8_t ap_mode_of_3way_switch(void)
 {
   if (radio_control.values[RADIO_MODE] > THRESHOLD_2_PPRZ) {
     return autopilot_mode_auto2;
-  }
-  else if (radio_control.values[RADIO_MODE] > THRESHOLD_1_PPRZ) {
+  } else if (radio_control.values[RADIO_MODE] > THRESHOLD_1_PPRZ) {
     return MODE_AUTO1;
-  }
-  else {
+  } else {
     return MODE_MANUAL;
   }
 }
@@ -647,16 +722,15 @@ static uint8_t ap_mode_of_two_switches(void)
   if (radio_control.values[RADIO_MODE] < THRESHOLD_1_PPRZ) {
     /* RADIO_MODE in MANUAL position */
     return MODE_MANUAL;
-  }
-  else {
+  } else {
     /* RADIO_MODE not in MANUAL position.
      * Select AUTO mode bassed on RADIO_AUTO_MODE channel
      */
     if (radio_control.values[RADIO_AUTO_MODE] > THRESHOLD_2_PPRZ) {
       return autopilot_mode_auto2;
-    }
-    else
+    } else {
       return MODE_AUTO1;
+    }
   }
 }
 #endif

@@ -11,7 +11,7 @@
     <configure name="MODEM_BAUD" value="B57600" description="UART baud rate"/>
   </doc>
   <header/>
-  <makefile target="ap">
+  <makefile target="!fbw|sim|nps">
     <configure name="MODEM_PORT" case="upper|lower"/>
     <define name="USE_$(MODEM_PORT_UPPER)"/>
     <define name="$(MODEM_PORT_UPPER)_BAUD" value="$(MODEM_BAUD)"/>
@@ -24,7 +24,7 @@
     <file name="downlink.c" dir="subsystems/datalink"/>
     <file name="datalink.c" dir="subsystems/datalink"/>
     <file name="telemetry.c" dir="subsystems/datalink"/>
-    <file name="pprz_transport.c" dir="$(PAPARAZZI_HOME)/var/share/pprzlink/src"/>
+    <file name="pprz_transport.c" dir="pprzlink/src"/>
   </makefile>
   <makefile target="ap" firmware="fixedwing">
     <file name="fixedwing_datalink.c" dir="$(SRC_FIRMWARE)"/>

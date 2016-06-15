@@ -52,6 +52,7 @@ extern int32_t nav_circle_radius, nav_circle_qdr, nav_circle_radians;
 #define HORIZONTAL_MODE_ROUTE     1
 #define HORIZONTAL_MODE_CIRCLE    2
 #define HORIZONTAL_MODE_ATTITUDE  3
+#define HORIZONTAL_MODE_MANUAL    4
 extern int32_t nav_roll, nav_pitch;     ///< with #INT32_ANGLE_FRAC
 extern int32_t nav_heading; ///< with #INT32_ANGLE_FRAC
 extern float nav_radius;
@@ -80,6 +81,7 @@ extern float get_dist2_to_waypoint(uint8_t wp_id);
 extern float get_dist2_to_point(struct EnuCoor_i *p);
 extern void compute_dist2_to_home(void);
 extern void nav_home(void);
+extern void nav_set_manual(float roll, float pitch, float yaw);
 
 unit_t nav_reset_reference(void) __attribute__((unused));
 unit_t nav_reset_alt(void) __attribute__((unused));
@@ -208,6 +210,8 @@ bool nav_check_wp_time(struct EnuCoor_i *wp, uint16_t stay_time);
     nav_roll = ANGLE_BFP_OF_REAL(_roll); \
   }
 
+#define NavSetManual nav_set_manual
+
 #define NavStartDetectGround() ({ autopilot_detect_ground_once = true; false; })
 #define NavDetectGround() nav_detect_ground()
 
@@ -221,10 +225,18 @@ bool nav_check_wp_time(struct EnuCoor_i *wp, uint16_t stay_time);
     nav_flight_altitude = POS_BFP_OF_REAL(flight_altitude - state.ned_origin_f.hmsl); \
   }
 
-
+/// Get current x (east) position in local coordinates
 #define GetPosX() (stateGetPositionEnu_f()->x)
+/// Get current y (north) position in local coordinates
 #define GetPosY() (stateGetPositionEnu_f()->y)
+/// Get current altitude above MSL
 #define GetPosAlt() (stateGetPositionEnu_f()->z+state.ned_origin_f.hmsl)
+/**
+ * Get current altitude reference for local coordinates.
+ * This is the ground_alt from the flight plan at first,
+ * but might be updated later through a call to NavSetGroundReferenceHere() or
+ * NavSetAltitudeReferenceHere(), e.g. in the GeoInit flight plan block.
+ */
 #define GetAltRef() (state.ned_origin_f.hmsl)
 
 
