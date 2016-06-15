@@ -67,6 +67,10 @@ extern float waypoint_get_x(uint8_t wp_id);
 /** Get Y/North coordinate of waypoint in meters */
 extern float waypoint_get_y(uint8_t wp_id);
 /** Get altitude of waypoint in meters (above reference) */
+
+extern int waypoint_get_x_int(uint8_t wp_id);
+extern int waypoint_get_y_int(uint8_t wp_id);
+
 extern float waypoint_get_alt(uint8_t wp_id);
 
 /** Get LLA coordinates of waypoint.

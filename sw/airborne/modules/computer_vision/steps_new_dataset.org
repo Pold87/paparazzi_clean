@@ -1,0 +1,43 @@
+This is a short list that shows the step by step introduction to
+record a new data set.
+
+* Start video recording on Bebop (video_thread)
+- Could have a look into Roland's video thread function
+
+* Copy images from Bebop
+
+* Read out CSV file from bebop 
+  Use FileZilla and go to /.../.../volker_strobel/xx.csv
+
+* Aggregate CSV file 
+Since Optitrack sends many more estimates than images that we actually
+take, we have to aggregate them using the function:
+
+/home/pold/Documents/Internship/group.R
+
+---
+library(plyr)
+
+X <- read.csv('/home/pold/from_bebop/00003.csv')
+
+agg <- ddply(X, .(image), summarize,  xs=mean(x), ys=mean(y))
+
+agg <- rename(agg, c("image"="id"))
+matches <- rep(100, nrow(agg))
+final <- cbind(agg, matches)
+write.csv(final, 'final.csv', quote=F, row.names=F)
+---
+
+* Run get_histograms.c
+
+* Copy files to bebop
+  mat_train_hists_all.csv
+  mat_train_hists_color.csv
+  mat_train_hists_texton.csv
+  final.csv
+
+* Adapt settings
+- Adapt number of histograms
+
+* Mind which CSV file to use for textons
+textons_malik.csv or textons.csv

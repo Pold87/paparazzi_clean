@@ -90,6 +90,23 @@ float waypoint_get_y(uint8_t wp_id)
   return 0.f;
 }
 
+
+int waypoint_get_x_int(uint8_t wp_id)
+{
+  if (wp_id < nb_waypoint) {
+    return waypoints[wp_id].enu_i.x;
+  }
+  return 0;
+}
+
+int waypoint_get_y_int(uint8_t wp_id)
+{
+  if (wp_id < nb_waypoint) {
+    return waypoints[wp_id].enu_i.y;
+  }
+  return 0;
+}
+
 float waypoint_get_alt(uint8_t wp_id)
 {
   if (wp_id < nb_waypoint) {

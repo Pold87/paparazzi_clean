@@ -49,6 +49,23 @@ double euclidean_dist(double x[], double y[], int s)
   return dist;
 }
 
+/* Calculate Euclidean distance between two double arrays */
+float euclidean_dist_float(float x[], float y[], int s)
+{
+  float sum = 0;
+  float dist;
+  int i;
+  for(i = 0; i < s; i++)
+    {
+       /* printf("%f ", x[i]); */
+
+      sum += pow((x[i] - y[i]), 2.0);
+    }
+      dist = sqrt(sum);
+      /* printf("dist is %f\n", dist); */
+  return dist;
+}
+
 
 double euclidean_dist_int(int x[], int y[], int s)
 {
@@ -342,7 +359,7 @@ void extract_one_patch(struct image_t *img, double *patch, int x, int y, uint8_t
 }
 
 /* Get the texton histogram of an image */
-void get_texton_histogram(struct image_t *img, double texton_histogram[], double textons[][TOTAL_PATCH_SIZE]) {
+void get_texton_histogram(struct image_t *img, float texton_histogram[], double textons[][TOTAL_PATCH_SIZE]) {
 
   printf("Type of in get_texton_hist  is %d\n", img->type);
     uint8_t texton_ids[MAX_TEXTONS * CHANNELS]; /*  texton IDs */
@@ -392,8 +409,8 @@ void get_texton_histogram(struct image_t *img, double texton_histogram[], double
     /* Build the histogram of textons from the texton ID array */
     make_histogram(texton_ids, texton_histogram);
 
-    /* Set black to zero */
-    texton_histogram[1] = 0.0;
+    /* /\* Set black to zero *\/ */
+    /* texton_histogram[1] = 0.0; */
     
     #if TREXTON_DEBUG
       printf("Texton histogram\n");
@@ -445,12 +462,17 @@ void get_color_histogram(struct image_t *img, double color_hist[], int num_bins)
 }
 
 /* Create a histogram showing the frequency of values in an array */
-void make_histogram(uint8_t *texton_ids, double texton_hist[]) {
+void make_histogram(uint8_t *texton_ids, float texton_hist[]) {
 
   int i = 0;
+  /* Set all to 0 (TODO: there might be a better option!!) */
+  for (i = 0; i < NUM_TEXTONS * CHANNELS; i++) {
+    texton_hist[i] =  0.0;
+  }
+  
   for (i = 0; i < MAX_TEXTONS * CHANNELS; i++) {
     texton_hist[texton_ids[i]] += (1.0 / (MAX_TEXTONS * CHANNELS));
-    }
+  }
 }
 
 
@@ -502,8 +524,28 @@ void save_histogram_double(double hist[], FILE *fp, int width) {
     }
     fprintf(fp, "\n");
     printf("\n");
-   
 }
+
+
+
+/* Write histogram to a new line to a given file pointer */
+void save_histogram_float(float hist[], FILE *fp, int width) {
+
+   if (!fp) {
+    fprintf(stderr, "[treXton - save_histogram] Can't open file.\n");
+   }
+
+    int j;
+    for (j = 0; j < width; j++) {
+      fprintf(fp, "%f", hist[j]);
+      if (j != width - 1)
+	fprintf(fp, ",");
+      printf("%f ", hist[j]);
+    }
+    fprintf(fp, "\n");
+    printf("\n");
+}
+
 
 void save_histogram_both(double hist_color[], double hist_textons[], FILE *fp_all, int width_color, int width_textons) {
    if (!fp_all) {

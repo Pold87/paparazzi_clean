@@ -145,7 +145,7 @@ c_ivy_client_example_1: c_ivy_client_example_1.c
 
 c_ivy_client_example_2: c_ivy_client_example_2.c
 	$(CC) $(GLIBIVY_CFLAGS) -o $@ $< $(GLIBIVY_LDFLAGS)
-
+	
 c_ivy_client_example_3: c_ivy_client_example_3.c
 	$(CC) $(GLIBIVY_CFLAGS) $(GTK_CFLAGS) -o $@ $< $(GLIBIVY_LDFLAGS) $(GTK_LDFLAGS)
 

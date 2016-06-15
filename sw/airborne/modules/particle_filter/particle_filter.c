@@ -29,6 +29,8 @@ void init_particles(struct particle particles[N]){
       particles[i].x = randu(1060, 1080);
       printf("%f", particles[i].x);
       particles[i].y = randu(275, 285);
+      particles[i].w = 1;
+      particles[i].prev_w = 1;
     }
 
     /* Initialize with random x, y-positions */
@@ -42,6 +44,10 @@ void init_particles(struct particle particles[N]){
 
       particles[i].x = randu(0, max_x);
       particles[i].y = randu(0, max_y);
+
+      particles[i].w = 1;
+      particles[i].prev_w = 1;
+      
       }
   }
 }
@@ -87,6 +93,7 @@ void weighted_sample(struct particle ps[], struct particle res[], double weights
     res[m] = v;
   }
 }
+
 
 double fmax(double a, double b) {
 
@@ -151,35 +158,31 @@ void resampling_wheel(struct particle ps[], struct particle res[], double weight
 }
 
 
-void particle_filter(struct particle xs[N], struct measurement *z, struct measurement *flow, int use_variance, int use_flow) {
+void particle_filter(struct particle xs[N], struct measurement z[], struct measurement *flow,
+		     int use_variance, int use_flow, int num_predictions) {
 
-  //printf("x is: %f y is: %f\n", z->x, z->y);
+
+  printf("Dists are %f %f %f", z[0].dist, z[1].dist, z[2].dist);
+  
   double w[N]; /* The weights of particles */
 
-  double process_noise_x = 10;
-  double process_noise_y = 10;
+  double process_noise_x = 8;
+  double process_noise_y = 8;
 
   double measurement_noise_x;
   double measurement_noise_y;
 
   if (use_variance) {
 
-    measurement_noise_x = z->dist * 1000;
-    measurement_noise_y = z->dist * 1000;
+    measurement_noise_x = z[0].dist * 1000;
+    measurement_noise_y = z[0].dist * 1000;
     printf("Measurement noise x is %f", measurement_noise_x);
 
   } else {
 
-    measurement_noise_x = 50;
-    measurement_noise_y = 50;
+    measurement_noise_x = 70;
+    measurement_noise_y = 70;
   }
-
-  /* For SIFT */
-  /* double process_noise_x = 8; */
-  /* double process_noise_y = 8; */
-
-  /* double measurement_noise_x = 70; */
-  /* double measurement_noise_y = 70; */
 
 
   /* Obtaining new belief state (iterate over all particles) */
@@ -192,91 +195,88 @@ void particle_filter(struct particle xs[N], struct measurement *z, struct measur
     /* Process noise incorporates the movement of the UAV */
     /* According to p(x_t | x_(t-1)) */
 
-    /* Calculate current heading */
-    /* double heading = atan2(z->y - xs[i].y, z->x - xs[i].x); */
-
-    /* Update heading */
-    /* xs[i].heading = 0.8 * xs[i].heading + 0.2 * heading; */
-
-    /* Move according to velocity */
-    /* double updated_x = xs[i].x + xs[i].vel_x * cos(xs[i].heading); */
-    /* double updated_y = xs[i].y + xs[i].vel_y * sin(xs[i].heading); */
-
-    /* Move according to velocity */
-    /* double updated_x = xs[i].x + xs[i].vel_x; */
-    /* double updated_y = xs[i].y + xs[i].vel_y; */
-
     double updated_x;
     double updated_y;
+
+    xs[i].prev_x = xs[i].x;
+    xs[i].prev_y = xs[i].y;
+    
     if (use_flow) {
-
-       /* Change heading */
-       /* TODO */
-
-       /* atan2(flow->y, flow->x) */
 
        updated_x = xs[i].x + flow->x;
        updated_y = xs[i].y + flow->y;
-
 
     } else {
        updated_x = xs[i].x;
        updated_y = xs[i].y;
     }
 
-    if (z->x != -1) {
-    /* Calculate current velocity */
-    double vel_x = z->x - xs[i].x;
-    double vel_y = z->y - xs[i].y;
-
-   /* Update velocity */
-    double speed_p_x = fmin(1, 0.01 + 100 * normpdf(xs[i].vel_x, vel_x, 50));
-    double speed_p_y = fmin(1, 0.01 + 100 * normpdf(xs[i].vel_y, vel_y, 50));
-
-    if (i == 0)
-      printf("p: %f\n", normpdf(xs[i].vel_y, vel_y, 50));
-
-    xs[i].vel_x = fmax(-25, fmin(25, (1 - speed_p_x) * xs[i].vel_x + speed_p_x * vel_x));
-    xs[i].vel_y = fmax(-25, fmin(25, (1 - speed_p_y) * xs[i].vel_y + speed_p_y * vel_y));
-
-    if (i == 0)
-      printf("vel %f", xs[i].vel_x);
-    }
-
     /* Add some random process noise */
     xs[i].x = randn(updated_x, process_noise_x);
     xs[i].y = randn(updated_y, process_noise_y);
-    /* xs[i].x = updated_x; */
-    /* xs[i].y = updated_y; */
-    /* xs[i].vel_x = randn(xs[i].vel_x, process_noise_x); */
-    /* xs[i].vel_y = randn(xs[i].vel_y, process_noise_y); */
 
     /* Calculate weight */
     double p_x, p_y;
-    //printf("z->x is %f xs[i].x is %f\n", z->x, xs[i].x);
 
-    if (z->x != -1) {
+      int pred;
+      double total_likelihood = 0.00000001;
 
-      p_x = normpdf(z->x, xs[i].x, measurement_noise_x);
-      p_y = normpdf(z->y, xs[i].y, measurement_noise_y);
+      double phi = 0.001;
+      double phis[num_predictions];
+      phis[0] = 0.6;
+      phis[1] = 0.3;
+      phis[2] = 0.1;
+      
+      
+      for (pred = 0; pred < num_predictions; pred++) {
 
-      //printf("p2 is %f\n", w[i]);
-      w[i] = p_x * p_y;
-      //w[i] = p_x * p_y;
+	if (z[pred].x != -1) {
+
+	  /* double phi = 1.0 / ((double) num_predictions); */
+	  phi = phis[pred];
+
+	  
+	  /* TODO: instead of fixed measurement noise use confidence */
+	  /* p_x = normpdf(z[pred].x, xs[i].x, measurement_noise_x); */
+	  /* p_y = normpdf(z[pred].y, xs[i].y, measurement_noise_y); */
+
+	  p_x = normpdf(xs[i].x, z[pred].x, z[pred].dist * 1400.0);
+	  p_y = normpdf(xs[i].y, z[pred].y, z[pred].dist * 1400.0);
+	  
+	  
+	  /* total_likelihood += phi * p_x * p_y; */
+	  
+	  total_likelihood += p_x * p_y;
+	  
+
+	}
+      }
+
+      xs[i].prev_w = xs[i].w;
+
+      /* TODO: see if weight array is necessary */
+      
+      w[i] = total_likelihood;
       xs[i].w = w[i]; /* Set weight of particle */
-    /* printf("w is %f\n", w[i]); */
-    }
+	
   }
 
+  
 
   /* Importance resampling: (iterate over all particles) */
   struct particle res[N];
   resampling_wheel(xs, res, w, N);
 
+  double total = 0;
   for (i = 0; i < N; i++) {
     xs[i] = res[i];
+    total += xs[i].w;
   }
 
+  /* Normalize weights (should be 1!) */
+  for (i = 0; i < N; i++) {
+    xs[i].w = xs[i].w / total;
+  }  
 }
 
 
@@ -300,6 +300,47 @@ struct particle weighted_average(struct particle ps[], int size) {
   return p;
 }
 
+struct particle map_estimate(struct particle ps[], int size) {
+
+  int i, j;
+  double total_weight = 0;
+  double x = 0;
+  double y = 0;
+
+  int process_noise_x = 50;
+  int process_noise_y = 50;
+
+  double t_max;
+  int t_argmax;
+  t_max = -1.0;
+  t_argmax = 0;
+  
+  struct particle p;
+
+  /* See paper MAP Estimation in Particle Filter Tracking */
+  for (i = 0; i < size; i++) {
+
+    double s, a, b, t;
+    s = 0;
+      
+      for (j = 0; j < size; j++) {
+	a = normpdf(ps[i].x, ps[j].prev_x, process_noise_x);
+	b = normpdf(ps[i].y, ps[j].prev_y, process_noise_y);
+	s += a * b * ps[j].prev_w;
+      }
+
+      t = ps[i].w * s;
+
+      if (t > t_max) {
+	t_max = t;
+	t_argmax = i;
+      }
+
+  }
+
+  printf("t_max is %f, argmax_t is %d", t_max, t_argmax);
+  return ps[t_argmax];
+}
 
 struct particle weight_forward_backward(struct particle p_forward, struct particle p_backward, int i, int k) {
 
@@ -322,9 +363,9 @@ struct particle weight_forward_backward(struct particle p_forward, struct partic
 struct particle calc_uncertainty(struct particle ps[], struct particle weighted_mean, int size) {
 
   int i;
-  double total_weight = 0;
-  double x = 0;
-  double y = 0;
+  float total_weight = 0;
+  float x = 0;
+  float y = 0;
 
     for (i = 0; i < size; i++) {
     total_weight += ps[i].w;
@@ -336,6 +377,9 @@ struct particle calc_uncertainty(struct particle ps[], struct particle weighted_
   p.x = x / total_weight;
   p.y = y / total_weight;
 
+  printf("\nUncertainty in x (STD) is: %f\n", sqrt(p.x));
+  printf("Uncertainty in y (STD) is: %f\n", sqrt(p.y));
+  
   return p;
 
 }
@@ -359,6 +403,20 @@ void visualize_simple(double x, double y) {
     fprintf(gnuplot, "refresh;\n");
 }
 
+
+void visualize_optitrack(int x, int y, int opti_x, int opti_y, double uncertainty) {
+    /* fprintf(gnuplot, "plot '/home/pold/Documents/Internship/draug/img/sparse_board.jpg' binary filetype=jpg with rgbimage, '-' with points pt 7 ps variable palette\n"); */
+    fprintf(gnuplot, "set cbrange [0:1]\n");
+    fprintf(gnuplot, "set palette defined (0.0 0 0 0.5, 0.1 0 0 1, 0.2 0 0.5 1, 0.3 0 1 1, 0.4 0.5 1 0.5, 0.5 1 1 0, 0.6 1 0.5 0, 0.7 1 0 0, 0.8 0.5 0 0)\n");
+    fprintf(gnuplot, "set colorbox\n");
+    printf("color is %f", uncertainty / 1000.0);
+    fprintf(gnuplot, "plot '-' with points pt 7 ps variable palette\n");
+    fprintf(gnuplot, "%d %d 4 %f\n", x, y, uncertainty/ 1000.0);
+    fprintf(gnuplot, "%d %d 4 0.0\n", opti_x, opti_y);
+    fprintf(gnuplot, "e\n");
+    fflush(gnuplot);
+    fprintf(gnuplot, "refresh;\n");
+}
 
 void visualize(struct particle particles[N], struct measurement *z, struct particle *pos)
 {

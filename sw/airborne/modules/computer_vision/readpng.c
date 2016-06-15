@@ -97,9 +97,13 @@ void read_png_file(char *filename, struct image_t *img) {
     int rgb_pos = 0;
 
       for(int y = 0; y < height; y++) {
+	/* printf("y: %d", y); */
+	fflush(stdout);
 	png_bytep row = row_pointers[y];
 	for(int x = 0; x < width; x++) {
 	  png_bytep px = &(row[x * 4]);
+	  /* printf("x: %d", x); */
+	  fflush(stdout);
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[0];
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[1];
 	  ((uint8_t*) img->buf)[rgb_pos++] = (uint8_t) px[2];

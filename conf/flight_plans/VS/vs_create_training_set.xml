@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "../flight_plan.dtd">
 
-<flight_plan alt="1.0" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="20" name="Rotorcraft Optitrack (Delft)" security_height="0.5">
+<flight_plan alt="1.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="20" name="Rotorcraft Optitrack (Delft)" security_height="0.5">
   <header>
 #include "autopilot.h"
 </header>
@@ -8,6 +8,7 @@
     <waypoint name="HOME" x="0.0" y="0.0"/>
     <waypoint name="CLIMB" x="1.2" y="-0.6"/>
     <waypoint name="TD" x="0.8" y="-1.7"/>
+    <waypoint name="LANDING" x="2.0" y="2.3"/>
 
     <waypoint name="t0" x="0.0" y="0.0"/>
     <waypoint name="t1" x="-1.0" y="1.0"/>
@@ -18,6 +19,12 @@
     <waypoint lat="51.9905874" lon="4.3767766" name="FA2"/>
     <waypoint lat="51.9906409" lon="4.3767226" name="FA3"/>
     <waypoint lat="51.9906737" lon="4.3768074" name="FA4"/>
+
+    <waypoint name="_tar0" x="1.0" y="1.0"/>
+    <waypoint name="_tar1" x="2.2" y="1.0"/>
+    <waypoint name="_tar2" x="2.2" y="0.2"/>
+    <waypoint name="_tar3" x="1.0" y="0.2"/>
+
   </waypoints>
   <sectors>
     <sector color="red" name="Flight_Area">
@@ -26,6 +33,14 @@
       <corner name="FA2"/>
       <corner name="FA1"/>
     </sector>
+
+    <sector color="blue" name="Target_Pos">
+      <corner name="_tar0"/>
+      <corner name="_tar1"/>
+      <corner name="_tar2"/>
+      <corner name="_tar3"/>
+    </sector>    
+
   </sectors>
   <blocks>
     <block name="Wait GPS">
@@ -38,6 +53,7 @@
       <!--<call fun="NavSetAltitudeReferenceHere()"/>-->
     </block>
     <block name="Holding point">
+      <call fun="isInTargetPos(WP_LANDING)"/>
       <call fun="NavKillThrottle()"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
@@ -61,7 +77,11 @@
     </block>
     <block name="create_training_set">
       <!-- <path wpts="t1, t2, t3" hmode="route"/> -->
-
+      <!-- <exception cond="InsideTarget_Pos(GetPosX(), GetPosY())" deroute="land here"/> -->
+      <!-- Perform target landing, if target region is reached  -->
+      <exception cond="isInTargetPos(WP_LANDING)" deroute="land here"/>
+      <!-- Alternative, if confidence should be taken into account -->
+      <!-- <exception cond="isInTargetPos() && isCertain()" deroute="land here"/> -->
       <go from="t0" hmode="route" wp="t1"/>
       <stay until="stage_time>5" wp="t1"/>
       <go wp="t2" hmode="route"/>

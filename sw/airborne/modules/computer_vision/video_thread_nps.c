@@ -79,10 +79,16 @@ static void *video_thread_function(void *data)
   /* TODO:could use for loop and number of pictures here */
   if (video_thread.is_running) {
 
-    int i;
+    int j = 0;
+    int i = 0;
+    //int offset = 400;
+    int offset = 0;
+    //    int max_pic = 625;
+    int max_pic = 0;
     /* TODO: use setting for 625 (amount of test pics) */
-    for (i = 0; i < 625; i++) {
-
+    while (1) {
+    /* for (i = 400; i < 625; i++) { */
+      i = offset + j;
       struct image_t img, yuv_img;
       image_create(&img, 640, 480, IMAGE_RGB);
       image_create(&yuv_img, 640, 480, IMAGE_YUV422);
@@ -95,7 +101,8 @@ static void *video_thread_function(void *data)
       cv_run(&yuv_img);
       image_free(&img);
       image_free(&yuv_img);
-      
+      j++;
+      j = j % (1 + offset - max_pic); 
     }    
   }
 }

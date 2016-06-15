@@ -6,7 +6,7 @@
 #include "modules/computer_vision/cv.h"
 #include <stdio.h>
 
-#include "modules/particle_filter/particle_filter.h"
+//#include "modules/particle_filter/particle_filter.h"
 
 #include "lib/v4l/v4l2.h"
 #include "lib/vision/image.h"
@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "state.h"
 
 /* #include "floatfann.h" */
 
@@ -32,14 +33,15 @@ bool gps_available;   ///< Is set to TRUE when a new REMOTE_GPS packet is receiv
 /* Histogram paths */
 static char histogram_filename[] = "mat_train_hists_texton.csv";
 /* static char histogram_filename_testset[] = "mat_test_hists_str8.csv"; */
-/* static char position_filename[] =  "board_train_pos.csv"; */
-static char position_filename[] =  "cyberzoo_pos_optitrack.csv";
-/* static char test_position_filename[] =  "predictions_cross.csv"; */
+/* static) char position_filename[] =  "board_train_pos.csv"; */
+//static char position_filename[] =  "cyberzoo_pos_optitrack.csv";
+static char position_filename[] =  "final.csv";
+static char test_position_filename[] =  "cyberzoo_pos_optitrack.csv";
 static struct measurement all_positions[NUM_HISTOGRAMS];
-/* static struct measurement all_test_positions[NUM_TEST_HISTOGRAMS]; */
+static struct measurement all_test_positions[NUM_TEST_HISTOGRAMS];
 
-static double regression_histograms[NUM_HISTOGRAMS][SIZE_HIST];
-static double regression_histograms_color[NUM_HISTOGRAMS][SIZE_HIST];
+static float regression_histograms[NUM_HISTOGRAMS][SIZE_HIST];
+static float regression_histograms_color[NUM_HISTOGRAMS][SIZE_HIST];
 /* static int histograms_testset[NUM_TEST_HISTOGRAMS][SIZE_HIST]; */
 
 static int current_test_histogram = 0;
@@ -57,17 +59,27 @@ static bool opticflow_got_result; ///< When we have an optical flow calculation
 
 static struct UdpSocket video_sock; /* UDP socket for sending RTP video */
 
-static int image_num = 0;
+static int image_num = 400;
 
 /* The trexton camera V4L2 device */
 static struct v4l2_device *trexton_dev;
 
 /* File that contains the filters */
 /* IMPORTANT: needs three decimal places !!! */
-static char *texton_filename = "textons.csv";
+//static char *texton_filename = "textons.csv";
+static char *texton_filename = "textons_malik.csv";
 
 /* Array with the textons */
 double textons[NUM_TEXTONS * CHANNELS][TOTAL_PATCH_SIZE];
+
+static int k = 3; /* Number of nearest neighbors for kNN */
+
+/* Uncertainty measurements */
+static float entropy = 0;
+static float uncertainty_x = 0;
+static float uncertainty_y = 0;
+
+float texton_histogram[NUM_TEXTONS * CHANNELS] = {0.0};
 
 #define USE_FLOW false
 
@@ -78,6 +90,12 @@ struct image_t* trexton_func(struct image_t* img);
 
 int global_x = 0;
 int global_y = 0;
+
+int global_ground_truth_x = 0;
+int global_ground_truth_y = 0;
+
+// For target landing
+int closest = 2000;
 
 void trexton_init(void)
 {
@@ -100,6 +118,7 @@ void trexton_init(void)
   /* Remove predictions file */
   remove("particle_filter_preds.csv");
   remove("edgeflow_diff.csv");
+  remove("knn.csv");
 
   // Set the opticflow state to 0
   opticflow_state.phi = 0;
@@ -132,6 +151,7 @@ void trexton_init(void)
 
   /* Read x, y, position from SIFT */
   read_positions_from_csv(all_positions, position_filename);
+  read_test_positions_from_csv(all_test_positions, test_position_filename);
 
 #endif
 
@@ -211,8 +231,6 @@ struct image_t* trexton_func(struct image_t* img) {
   gettimeofday(&t0, 0);
 #endif
 
-
-  double texton_histogram[NUM_TEXTONS*NUM_TEXTONS] = {0.0};
   get_texton_histogram(img, texton_histogram, textons);
 
   #if USE_COLOR
@@ -256,9 +274,10 @@ struct image_t* trexton_func(struct image_t* img) {
 #endif
 
 
-#if SAVE_HISTOGRAM
-  save_histogram(texton_histogram, HISTOGRAM_PATH);
-#elif PREDICT
+/* #if SAVE_HISTOGRAM */
+/*   save_histogram(texton_histogram, HISTOGRAM_PATH); */
+/* #elif PREDICT */
+#if PREDICT
 
 #if MEASURE_TIME
   gettimeofday(&t1, 0);
@@ -277,31 +296,31 @@ struct image_t* trexton_func(struct image_t* img) {
   printf("\n");
   #else
   int i;
-  printf("TEXTON\n");
-  for (i = 0; i < SIZE_HIST; i++) {
-    printf("%f ", texton_histogram[i]);
-  }
-  printf("\n");
+  /* printf("TEXTON\n"); */
+  /* for (i = 0; i < SIZE_HIST; i++) { */
+  /*   printf("%f ", texton_histogram[i]); */
+  /* } */
+  /* printf("\n"); */
   #endif
 
   /* TreXton prediction */
-  struct measurement pos;
+  struct measurement pos[k];
   /* For textons */
   /* pos = predict_position(texton_histogram, NUM_TEXTONS * CHANNELS); */
 
   /* For colors */
   #if USE_COLOR
-  pos = predict_position(color_hist, COLOR_CHANNELS * NUM_COLOR_BINS);
+  predict_position(pos, color_hist, COLOR_CHANNELS * NUM_COLOR_BINS);
   #else
   /* For textons */
-  pos = predict_position(texton_histogram, NUM_TEXTONS * CHANNELS);
+  predict_position(pos, texton_histogram, NUM_TEXTONS * CHANNELS);
   #endif
 
  
   /* For colors */
   /* pos = predict_fann(texton_histogram, NUM_COLOR_BINS * COLOR_CHANNELS); */
   /* pos = linear_regression_prediction(texton_histogram); */
-  printf("\nPOSITION IS x:%f y:%f\n", pos.x, pos.y);
+  printf("\nPOSITION[0] IS x:%f y:%f\n", pos[0].x, pos[0].y);
   fflush(stdout);
 
 #if MEASURE_TIME
@@ -351,10 +370,10 @@ struct image_t* trexton_func(struct image_t* img) {
   flow.y =  9.0 * ((double) opticflow_result.flow_y) / 1000.0;
 
   printf("flow is %f", flow.x);
-  particle_filter(particles, &pos, &flow, use_variance, 1);
+  particle_filter(particles, pos, &flow, use_variance, 1, k);
   opticflow_got_result = FALSE;
 #else
-  particle_filter(particles, &pos, &flow, use_variance, 0);
+  particle_filter(particles, pos, &flow, use_variance, 0, k);
 #endif
 
   printf("I finished the particle filter");
@@ -367,12 +386,22 @@ struct image_t* trexton_func(struct image_t* img) {
   gettimeofday(&t0, 0);
 #endif
 
-  struct particle p_forward = weighted_average(particles, N);
+  /* TODO: compare weighted average and MAP estimate */
+  struct particle avg = weighted_average(particles, N);
+  struct particle var = calc_uncertainty(particles, avg, N);
+
+  uncertainty_x = var.x;
+  uncertainty_y = var.y;
+  
+  struct particle p_forward = map_estimate(particles, N);
   /* printf("\nRaw: %f,%f\n", pos.x, pos.y); */
   printf("Particle filter: %f,%f\n", p_forward.x, p_forward.y);
 
   global_x = (int) p_forward.x;
   global_y = (int) p_forward.y;
+
+  global_ground_truth_x = all_test_positions[image_num].x;
+  global_ground_truth_y = all_test_positions[image_num].y;
  
   FILE *fp_predictions;
   FILE *fp_particle_filter;
@@ -437,13 +466,14 @@ struct image_t* trexton_func(struct image_t* img) {
  *
  * @return The x, y, position of the MAV, computed by means of the input histogram
  */
-struct measurement predict_position(double hist[], int hist_size)
+void predict_position(struct measurement pos[], float hist[], int hist_size)
 {
 
+  printf("Closest is %d\n", closest);
   int h = 0; /* Histogram iterator variable */
 
   struct measurement measurements[NUM_HISTOGRAMS];
-  double dist;
+  float dist;
 
   /* Compare current texton histogram to all saved histograms for
      a certain class */
@@ -452,7 +482,7 @@ struct measurement predict_position(double hist[], int hist_size)
 #if USE_COLOR
     dist = chi_square_dist_double(hist, regression_histograms_color[h], hist_size);
 #else
-    dist = euclidean_dist(hist, regression_histograms[h], hist_size);
+    dist = euclidean_dist_float(hist, regression_histograms[h], hist_size);
 #endif
 
     /* printf("dist is %d %f\n", h, dist); */
@@ -474,54 +504,164 @@ struct measurement predict_position(double hist[], int hist_size)
 
   /* Return average over first positions for accurate regression: */
 
-  int k = 3, l;
-  struct  measurement mean_pos;
-  mean_pos.x = 0;
-  mean_pos.y = 0;
-  mean_pos.dist = 0;
+  int l;
+  /* struct  measurement mean_pos; */
+  /* mean_pos.x = 0; */
+  /* mean_pos.y = 0; */
+  /* mean_pos.dist = 0; */
+
+  /* FILE *fp_knn; */
+  /* fp_knn = fopen("knn.csv", "a"); */
+  
+  /* for (l = 0; l < k; l++) { */
+  /*   printf("\nmeasurement: x: %f, y: %f dist: %f num_histogram: %d\n", measurements[l].x, measurements[l].y, */
+  /*          measurements[l].dist, measurements[l].hist_num); */
+  /*   printf("\n\nnum_histogram: %d\n\n", measurements[l].hist_num); */
+  /*   fflush(stdout); */
+  /*   mean_pos.x += measurements[l].x / k; */
+  /*   mean_pos.y += measurements[l].y / k; */
+  /*   mean_pos.dist += measurements[l].dist / k; */
+
+  /*   fprintf(fp_knn, "%f,%f", measurements[l].x, measurements[l].y); */
+  /*   if (l != k - 1) */
+  /*     fprintf(fp_knn, ","); */
+  /* } */
+
+  /* Fill struct with nearest neighbors */
   for (l = 0; l < k; l++) {
-    printf("\nmeasurement: x: %f, y: %f dist: %f num_histogram: %d\n", measurements[l].x, measurements[l].y,
-           measurements[l].dist, measurements[l].hist_num);
-    printf("\n\nnum_histogram: %d\n\n", measurements[l].hist_num);
-    fflush(stdout);
-    mean_pos.x += measurements[l].x / k;
-    mean_pos.y += measurements[l].y / k;
-    mean_pos.dist += measurements[l].dist / k;
+    struct measurement cur_pos;
+    pos[l] = cur_pos;
+    pos[l].x = measurements[l].x;
+    pos[l].y = measurements[l].y;
+    pos[l].dist = measurements[l].dist;
+      
   }
 
-  return mean_pos;
+  /* fprintf(fp_knn, "\n"); */
+  /* fclose(fp_knn); */
 }
 
 static void send_trexton_position(struct transport_tx *trans, struct link_device *dev)
  {
-   printf("global x is %d global y is %d", global_x, global_y);
+   /* printf("global x is %d global y is %d\n", global_x, global_y); */
    fflush(stdout);
-   pprz_msg_send_TREXTON(trans, dev, AC_ID, &global_x, &global_y);
+   struct NedCoor_i *ned = stateGetPositionNed_i();
+
+   /* For using Optitrack or the simulator */
+   /* pprz_msg_send_TREXTON(trans, dev, AC_ID, &global_x, &global_y, &ned->x, &ned->y, &entropy, &uncertainty_x, &uncertainty_y); */
+
+   int i;
+   /* printf("\n"); */
+   /* printf("THE HISTOGRAM IS\n"); */
+   /* for (i = 0; i < N; i++) { */
+   /*   printf("%f ", texton_histogram[i]); */
+   /* } */
+   /* printf("\n"); */
+
+   
+   /* For comparing ground truth to estimates */
+   pprz_msg_send_TREXTON(trans, dev, AC_ID, &global_x, &global_y,
+			 &global_ground_truth_x, &global_ground_truth_y,
+			 &entropy, &uncertainty_x, &uncertainty_y,
+			 &texton_histogram[0],
+			 &texton_histogram[1],
+			 &texton_histogram[2],
+			 &texton_histogram[3],
+			 &texton_histogram[4],
+			 &texton_histogram[5],
+			 &texton_histogram[6],
+			 &texton_histogram[7],
+			 &texton_histogram[8],
+			 &texton_histogram[9],
+			 &texton_histogram[10],
+			 &texton_histogram[11],
+			 &texton_histogram[12],
+			 &texton_histogram[13],
+			 &texton_histogram[14],
+			 &texton_histogram[15],
+			 &texton_histogram[16],
+			 &texton_histogram[17],
+			 &texton_histogram[18],
+			 &texton_histogram[19],
+			 &texton_histogram[20],
+			 &texton_histogram[21],
+			 &texton_histogram[22],
+			 &texton_histogram[23],
+			 &texton_histogram[24],
+			 &texton_histogram[25],
+			 &texton_histogram[26],
+			 &texton_histogram[27],
+			 &texton_histogram[28],
+			 &texton_histogram[29],
+			 &texton_histogram[30],
+			 &texton_histogram[31],
+			 &texton_histogram[32]);
  }
-
-/* /\** Parse the REMOTE_GPS datalink packet *\/ */
-/* void send_pos_to_ground_station(int x, int y) */
-/* { */
-/*   // Dummy for changing coordinates */
-
-/*   AbiSendMsgTREXTON(GPS_DATALINK_ID, x, y); */
-/*   /\* pprz_msg_send_TREXTON(trans, dev, AC_ID, x, y); *\/ */
-/* } */
 
 
 /* Initialize GPS settings  */
 void init_positions(void)
 {
   //gps.fix = GPS_FIX_NONE;
-  gps.fix = GPS_FIX_3D;
-  gps_available = TRUE;
-  gps.gspeed = 700; // To enable course setting
-  gps.cacc = 0; // To enable course setting
+  /* gps.fix = GPS_FIX_3D; */
+  /* gps_available = TRUE; */
+  /* gps.gspeed = 700; // To enable course setting */
+  /* gps.cacc = 0; // To enable course setting */
 
-  // CyberZoo ref point is in:
-  // https://github.com/tudelft/infinium_video/blob/volker/coordTransforms.py
-  gps.ecef_pos.x = 392433249;
-  gps.ecef_pos.y = 30036183;
-  gps.ecef_pos.z = 500219779;
+  /* // CyberZoo ref point is in: */
+  /* // https://github.com/tudelft/infinium_video/blob/volker/coordTransforms.py */
+  /* gps.ecef_pos.x = 392433249; */
+  /* gps.ecef_pos.y = 30036183; */
+  /* gps.ecef_pos.z = 500219779; */
 
+}
+
+
+int targetPos_X = 78;
+int targetPos_Y = 56;
+int accuracy = 25;
+
+/* Check if the current position is in the circle spanned by the
+   target position and the desired accuracy */
+uint8_t isInTargetPos(uint8_t wp_id)
+{
+
+  //  int targetPos_X_i = waypoint_get_x_int(wp_id);
+  //int targetPos_Y_i = waypoint_get_y_int(wp_id);
+
+
+  int targetPos_X_i = targetPos_X;
+  int targetPos_Y_i = targetPos_Y;
+
+
+  printf("target pos x %d, target pos y %d", targetPos_X_i, targetPos_Y_i);
+  int dist_x = targetPos_X_i - global_x;
+  int dist_y = targetPos_Y_i - global_y;
+  int d = sqrt(dist_x * dist_x + dist_y * dist_y);
+
+  uint8_t inside = d < accuracy;
+
+  if (d < closest)
+    closest = d;
+
+  printf("\nglob x: %d, glob y:%d, dist is %d closest %d\n", global_x, global_y, d, closest);
+
+  return inside;
+  
+}
+
+float tolerated_x_dev = 100.0;
+float tolerated_y_dev = 100.0;
+
+/* Check if the particle filter is certain that the current estimates
+   are valid */
+uint8_t isCertain(void)
+{
+
+  uint8_t isCertain = 0;
+  if (uncertainty_x < tolerated_x_dev && uncertainty_y < tolerated_y_dev)
+    isCertain = 1;
+
+  return isCertain;
+  
 }

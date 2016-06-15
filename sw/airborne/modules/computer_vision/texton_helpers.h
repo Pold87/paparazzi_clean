@@ -51,6 +51,7 @@ struct position {
 
 };
 
+float euclidean_dist_float(float x[], float y[], int s);
 double euclidean_dist(double x[], double y[], int s);
 double euclidean_dist_int(int x[], int y[], int s);
 double chi_square_dist(int x[], int y[], int s);
@@ -78,10 +79,11 @@ int arg_max(int arr[], int size);
  */
 int max(int arr[], int size);
 void extract_one_patch(struct image_t *img, double *patch, int x, int y, uint8_t patch_size, uint8_t channel);
-void get_texton_histogram(struct image_t *img, double texton_histogram[], double textons[][TOTAL_PATCH_SIZE]);
-void make_histogram(uint8_t *texton_ids, double texton_hist[]);
+void get_texton_histogram(struct image_t *img, float texton_histogram[], double textons[][TOTAL_PATCH_SIZE]);
+void make_histogram(uint8_t *texton_ids, float texton_hist[]);
 void save_histogram_int(int hist[], FILE *fp, int width);
 void save_histogram_double(double hist[], FILE *fp, int width);
+void save_histogram_float(float hist[], FILE *fp, int width);
 void save_histogram_both(double hist_color[], double hist_textons[], FILE *fp_all, int width_color, int width_textons);
 void concat_histograms(double color_hist[], double texton_histogram[], double both_hists[], int width_color, int width_textons);
 uint8_t label_image_patch(double *patch, double textons[][TOTAL_PATCH_SIZE], uint8_t channel);

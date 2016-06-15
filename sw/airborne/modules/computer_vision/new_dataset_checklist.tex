@@ -1,0 +1,48 @@
+\documentclass{article}
+
+\title{Checklist -- New Dataset Bebop}
+\date{}
+
+\usepackage{wasysym} 
+\usepackage{url}     
+
+\setlength{\marginparwidth}{1.2in}
+\let\oldmarginpar\marginpar
+\renewcommand\marginpar[1]{\-\oldmarginpar[\raggedleft #1]%
+{\raggedright #1}}    
+
+\newenvironment{checklist}{%
+  \begin{list}{}{}% whatever you want the list to be
+  \let\olditem\item
+  \renewcommand\item{\olditem -- \marginpar{$\Box$} }
+  \newcommand\checkeditem{\olditem -- \marginpar{$\CheckedBox$} }
+}{%
+  \end{list}
+} 
+
+\begin{document}
+\maketitle
+
+\begin{checklist}
+\item Start video recording on Bebop (video\_thread)
+\item Copy images from Bebop using FileZilla
+\item Read out CSV file from Bebop\\
+ Use FileZilla and go to
+ \url{/data/ftp/internal_xxx/volker_stream/xx.csv}
+\item Aggregate CSV file\\
+Since Optitrack sends many more estimates than images that we actually
+take, we have to aggregate them using the function:\\
+\url{/home/pold/Documents/Internship/group.R}
+\item Run \texttt{get\_histograms.c}
+\item Copy files to bebop\\
+  mat\_train\_hists\_all.csv\\
+  mat\_train\_hists\_color.csv\\
+  mat\_train\_hists\_texton.csv\\
+  final.csv\\
+\item Adapt settings\\
+Adapt number of histograms; set color vs texton histogram etc.
+\item Mind which CSV file to use for textons\\
+  \texttt{textons\_malik.csv} or \texttt{textons.csv}
+\end{checklist}
+
+\end{document}
