@@ -13,6 +13,7 @@
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
 #include "udp_socket.h"
+#include "modules/computer_vision/cv.h"
 
 #include "subsystems/gps.h"
 #include "subsystems/abi.h"
@@ -26,6 +27,8 @@
 #include <errno.h>
 #include "state.h"
 
+
+
 /* #include "floatfann.h" */
 
 bool gps_available;   ///< Is set to TRUE when a new REMOTE_GPS packet is received and parsed
@@ -34,8 +37,8 @@ bool gps_available;   ///< Is set to TRUE when a new REMOTE_GPS packet is receiv
 static char histogram_filename[] = "mat_train_hists_texton.csv";
 /* static char histogram_filename_testset[] = "mat_test_hists_str8.csv"; */
 /* static) char position_filename[] =  "board_train_pos.csv"; */
-//static char position_filename[] =  "cyberzoo_pos_optitrack.csv";
-static char position_filename[] =  "final.csv";
+static char position_filename[] =  "cyberzoo_pos_optitrack.csv";
+//static char position_filename[] =  "final.csv";
 static char test_position_filename[] =  "cyberzoo_pos_optitrack.csv";
 static struct measurement all_positions[NUM_HISTOGRAMS];
 static struct measurement all_test_positions[NUM_TEST_HISTOGRAMS];
@@ -177,7 +180,8 @@ void trexton_init(void)
   /* } */
 
   printf("Adding function");
-  cv_add(trexton_func);
+  cv_add_to_device(&TREXTON_CAMERA, trexton_func);
+  printf("Still there");
 
 }
 

@@ -40,8 +40,9 @@
     <include name="modules/computer_vision"/>
     <file name="image.c" dir="modules/computer_vision/lib/vision"/>
     <file name="readpng.c" dir="modules/computer_vision/"/>
+    <file name="image_conversions.c"/>
     <file name="jpeg.c" dir="modules/computer_vision/lib/encoding"/>
     <flag name="LDFLAGS" value="lpthread"/>
-    <flag name="LDFLAGS" value="lpng16"/>
+    <flag name="LDFLAGS" value="lpng12"/>
   </makefile>
 </module>

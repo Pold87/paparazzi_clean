@@ -58,15 +58,14 @@ void video_thread_periodic(void) { }
 #include "video_thread.h"
 #include "cv.h"
 #include "lib/vision/image.h"
-
+#include "image_conversions.h"
 
 // Initialize the video_thread structure with the defaults
 struct video_thread_t video_thread = {
-  .is_running = FALSE,
-  .fps = VIDEO_THREAD_FPS,
-  .take_shot = FALSE,
-  .shot_number = 0
   .is_running = FALSE
+  /* .fps = VIDEO_THREAD_FPS, */
+  /* .take_shot = FALSE, */
+  /* .shot_number = 0 */
 };
 
 // All dummy functions
@@ -76,6 +75,8 @@ void video_thread_init(void) {
 }
 static void *video_thread_function(void *data)
 {
+
+   struct video_config_t *vid = (struct video_config_t *)data;
 
   /* TODO: use setting variable here */
   char image_folder[] = "/home/pold/from_bebop/png/";
@@ -103,8 +104,16 @@ static void *video_thread_function(void *data)
       sprintf(image_path, "%simg_%05d.png", image_folder, i);
       printf("Image path: %s\n", image_path);
       read_png_file(image_path, &img);
+      printf("Read file");
+      fflush(stdout);
+      printf("Converting");
+      fflush(stdout);
       RGBtoYUV422(&img, &yuv_img);
-      cv_run(&yuv_img);
+      printf("Converted");
+      fflush(stdout);
+      cv_run_device(vid, &yuv_img);
+      printf("Before free");
+      fflush(stdout);
       image_free(&img);
       image_free(&yuv_img);
       j++;
@@ -136,26 +145,11 @@ void video_thread_start(void)
 
 /**
  * Stops the streaming
- * This could take some time, because the thread is stopped asynchronous.
+take * This could take some time, because the thread is stopped asynchronous.
  */
 void video_thread_stop(void)
 {
-  // Check if not already stopped streaming
-  if (!video_thread.is_running) {
-    return;
-  }
-  cv_run_device(NULL,&img);
 
-  // Stop the streaming thread
-  video_thread.is_running = false;
-
-  // Stop the capturing
-  if (!v4l2_stop_capture(video_thread.dev)) {
-    printf("[video_thread] Could not stop capture of %s.\n", video_thread.dev->name);
-    return;
-  }
-
-  // TODO: wait for the thread to finish to be able to start the thread again!
 }
 
 
@@ -165,7 +159,6 @@ void video_thread_stop(void)
  */
 void video_thread_take_shot(bool take)
 {
-  video_thread.take_shot = take;
 }
 
 bool add_video_device(struct video_config_t *device __attribute__((unused))){ return true; }

@@ -3,6 +3,7 @@
 #include <png.h>
 #include "lib/vision/image.h"
 #include "readpng.h"
+#include "image_conversions.h"
 
 
 void read_png_file(char *filename, struct image_t *img) {
@@ -20,7 +21,7 @@ void read_png_file(char *filename, struct image_t *img) {
   png_infop info = png_create_info_struct(png);
   if(!info) abort();
 
-  if(setjmp(png_jmpbuf(png))) abort();
+  //if(setjmp(png_jmpbuf(png))) abort();
 
   png_init_io(png, fp);
   

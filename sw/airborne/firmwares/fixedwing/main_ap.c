@@ -67,9 +67,6 @@ PRINT_CONFIG_MSG_VALUE("USE_BARO_BOARD is TRUE, reading onboard baro: ", BARO_BO
 #include CTRL_TYPE_H
 #include "firmwares/fixedwing/nav.h"
 #include "generated/flight_plan.h"
-#ifdef TRAFFIC_INFO
-#include "subsystems/navigation/traffic_info.h"
-#endif
 
 // datalink & telemetry
 #if DATALINK || SITL
@@ -190,9 +187,6 @@ void init_ap(void)
   stateInit();
 
   /************* Sensors initialization ***************/
-#if USE_GPS
-  gps_init();
-#endif
 
 #if USE_IMU
   imu_init();
@@ -256,12 +250,6 @@ void init_ap(void)
 #if defined AEROCOMM_DATA_PIN
   IO0DIR |= _BV(AEROCOMM_DATA_PIN);
   IO0SET = _BV(AEROCOMM_DATA_PIN);
-#endif
-
-  /************ Multi-uavs status ***************/
-
-#ifdef TRAFFIC_INFO
-  traffic_info_init();
 #endif
 
   /* set initial trim values.
@@ -398,7 +386,7 @@ static inline void telecommand_task(void)
 
   /* really_lost is true if we lost RC in MANUAL or AUTO1 */
   uint8_t really_lost = bit_is_set(fbw_state->status, STATUS_RADIO_REALLY_LOST) &&
-    (pprz_mode == PPRZ_MODE_AUTO1 || pprz_mode == PPRZ_MODE_MANUAL);
+                        (pprz_mode == PPRZ_MODE_AUTO1 || pprz_mode == PPRZ_MODE_MANUAL);
 
   if (pprz_mode != PPRZ_MODE_HOME && pprz_mode != PPRZ_MODE_GPS_OUT_OF_ORDER && launch) {
     if (too_far_from_home || datalink_lost() || higher_than_max_altitude()) {
@@ -535,7 +523,7 @@ void navigation_task(void)
   }
 
 #ifdef TCAS
-  CallTCAS();
+  callTCAS();
 #endif
 
 #if DOWNLINK && !defined PERIOD_NAVIGATION_Ap_0 // If not sent periodically (in default 0 mode)
@@ -638,10 +626,6 @@ void sensors_task(void)
   update_ahrs_from_sim();
 #endif
 
-#if USE_GPS
-  gps_periodic_check();
-#endif
-
   //FIXME: temporary hack, remove me
 #ifdef InsPeriodic
   InsPeriodic();
@@ -718,10 +702,6 @@ void event_task_ap(void)
   TODO("calling InsEvent, remove me..")
   InsEvent();
 #endif
-
-#if USE_GPS
-  GpsEvent();
-#endif /* USE_GPS */
 
 #if USE_BARO_BOARD
   BaroEvent();

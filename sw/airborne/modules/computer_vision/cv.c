@@ -60,23 +60,18 @@ void cv_add_to_device(struct video_config_t *device, cvFunction func)
 void cv_run_device(struct video_config_t *device, struct image_t *img)
 {
 
-  struct image_t* temp_image = img;
-  printf("Yeah yeah I'm called: %d", cv_func_cnt);
-  for (int i = 0; i < cv_func_cnt; i++) {
-    struct image_t* new_image = cv_func[i](temp_image);
-    if (new_image != 0)
-    {
-      temp_image = new_image;
-    }
-
   // For each function added to a device, run this function with the image that was taken
   struct video_listener *pointing_to = device->pointer_to_first_listener;
+
+  printf("Called");
+
 
   // Loop through computer vision pipeline
   while (pointing_to != NULL) {
     // Execute the cvFunction and catch result
+     printf("\nCalling");
     struct image_t *result = pointing_to->func(img);
-
+    printf("\nGitut");
     // If result gives an image pointer, use it in the next stage
     if (result != NULL)
       img = result;
@@ -85,4 +80,7 @@ void cv_run_device(struct video_config_t *device, struct image_t *img)
     pointing_to = pointing_to->next;
 
   }
+
+  printf("\nFinished");
+
 }

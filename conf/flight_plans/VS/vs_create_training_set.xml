@@ -53,7 +53,7 @@
       <!--<call fun="NavSetAltitudeReferenceHere()"/>-->
     </block>
     <block name="Holding point">
-      <call fun="isInTargetPos(WP_LANDING)"/>
+      <!--<call fun="isInTargetPos(WP_LANDING)"/>-->
       <call fun="NavKillThrottle()"/>
       <attitude pitch="0" roll="0" throttle="0" until="FALSE" vmode="throttle"/>
     </block>
@@ -79,7 +79,7 @@
       <!-- <path wpts="t1, t2, t3" hmode="route"/> -->
       <!-- <exception cond="InsideTarget_Pos(GetPosX(), GetPosY())" deroute="land here"/> -->
       <!-- Perform target landing, if target region is reached  -->
-      <exception cond="isInTargetPos(WP_LANDING)" deroute="land here"/>
+      <!--<exception cond="isInTargetPos(WP_LANDING)" deroute="land here"/>-->
       <!-- Alternative, if confidence should be taken into account -->
       <!-- <exception cond="isInTargetPos() && isCertain()" deroute="land here"/> -->
       <go from="t0" hmode="route" wp="t1"/>
